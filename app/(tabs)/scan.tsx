@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -15,6 +15,7 @@ import { Colors } from '../../src/constants/colors';
 export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
 
   const handleBarcodeScanned = ({ type, data }: { type: string; data: string }) => {
     if (scanned) return;
@@ -26,17 +27,13 @@ export default function ScanScreen() {
       const username = match[1];
       router.push(`/card/${username}`);
     } else {
-      Alert.alert(
-        '인식 실패',
-        'Scanly 명함 QR 코드가 아닙니다.',
-        [
-          {
-            text: '다시 스캔',
-            onPress: () => setScanned(false),
-          },
-        ]
-      );
+      setShowErrorModal(true);
     }
+  };
+
+  const handleCloseErrorModal = () => {
+    setShowErrorModal(false);
+    setScanned(false);
   };
 
   if (!permission) {
@@ -92,7 +89,7 @@ export default function ScanScreen() {
 
           <View style={styles.footer}>
             <Text style={styles.instruction}>QR 코드를 스캔하세요</Text>
-            {scanned && (
+            {scanned && !showErrorModal && (
               <TouchableOpacity
                 style={styles.rescanButton}
                 onPress={() => setScanned(false)}
@@ -103,6 +100,31 @@ export default function ScanScreen() {
           </View>
         </SafeAreaView>
       </CameraView>
+
+      <Modal
+        visible={showErrorModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseErrorModal}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={handleCloseErrorModal}
+        >
+          <View style={styles.modalContent}>
+            <TouchableOpacity style={styles.modalCloseButton} onPress={handleCloseErrorModal}>
+              <Ionicons name="close" size={24} color={Colors.textSecondary} />
+            </TouchableOpacity>
+            <Ionicons name="alert-circle-outline" size={48} color={Colors.error} />
+            <Text style={styles.modalTitle}>인식 실패</Text>
+            <Text style={styles.modalMessage}>Scanly 명함 QR 코드가 아닙니다.</Text>
+            <TouchableOpacity style={styles.modalButton} onPress={handleCloseErrorModal}>
+              <Text style={styles.modalButtonText}>다시 스캔</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -215,6 +237,52 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   rescanButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 24,
+    paddingTop: 40,
+    alignItems: 'center',
+    marginHorizontal: 40,
+    minWidth: 280,
+    position: 'relative',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    padding: 4,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginTop: 16,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  modalButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 24,
+  },
+  modalButtonText: {
     color: Colors.white,
     fontSize: 14,
     fontWeight: '600',
