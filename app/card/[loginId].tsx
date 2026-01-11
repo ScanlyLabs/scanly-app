@@ -26,7 +26,7 @@ const mockCard = {
 };
 
 export default function CardDetailScreen() {
-  const { username } = useLocalSearchParams<{ username: string }>();
+  const { loginId } = useLocalSearchParams<{ loginId: string }>();
   const [showExchangeModal, setShowExchangeModal] = useState(false);
 
   const handleSave = () => {

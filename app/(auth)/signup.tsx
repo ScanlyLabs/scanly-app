@@ -14,19 +14,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../src/constants/colors';
 
 export default function SignupScreen() {
-  const [email, setEmail] = useState('');
+  const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [username, setUsername] = useState('');
-  const [usernameValid, setUsernameValid] = useState<boolean | null>(null);
+  const [email, setEmail] = useState('');
+  const [loginIdValid, setLoginIdValid] = useState<boolean | null>(null);
 
-  const checkUsername = (value: string) => {
-    setUsername(value);
+  const checkLoginId = (value: string) => {
+    setLoginId(value);
     // TODO: 실제 중복 체크 API 호출
     if (value.length >= 3) {
-      setUsernameValid(true);
+      setLoginIdValid(true);
     } else {
-      setUsernameValid(null);
+      setLoginIdValid(null);
     }
   };
 
@@ -59,16 +59,28 @@ export default function SignupScreen() {
 
           <View style={styles.form}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>이메일</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="example@email.com"
-                placeholderTextColor={Colors.textTertiary}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+              <Text style={styles.label}>아이디 (URL에 사용됩니다)</Text>
+              <View style={styles.loginIdInputWrapper}>
+                <Text style={styles.loginIdPrefix}>scanly.io/u/</Text>
+                <TextInput
+                  style={styles.loginIdInput}
+                  placeholder="loginid"
+                  placeholderTextColor={Colors.textTertiary}
+                  value={loginId}
+                  onChangeText={checkLoginId}
+                  autoCapitalize="none"
+                />
+              </View>
+              {loginIdValid === true && (
+                <Text style={styles.validText}>
+                  ✓ 사용 가능한 아이디입니다
+                </Text>
+              )}
+              {loginIdValid === false && (
+                <Text style={styles.invalidText}>
+                  ✗ 이미 사용 중인 아이디입니다
+                </Text>
+              )}
             </View>
 
             <View style={styles.inputGroup}>
@@ -96,28 +108,16 @@ export default function SignupScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>사용자명 (URL에 사용됩니다)</Text>
-              <View style={styles.usernameInputWrapper}>
-                <Text style={styles.usernamePrefix}>scanly.io/u/</Text>
-                <TextInput
-                  style={styles.usernameInput}
-                  placeholder="username"
-                  placeholderTextColor={Colors.textTertiary}
-                  value={username}
-                  onChangeText={checkUsername}
-                  autoCapitalize="none"
-                />
-              </View>
-              {usernameValid === true && (
-                <Text style={styles.validText}>
-                  ✓ 사용 가능한 사용자명입니다
-                </Text>
-              )}
-              {usernameValid === false && (
-                <Text style={styles.invalidText}>
-                  ✗ 이미 사용 중인 사용자명입니다
-                </Text>
-              )}
+              <Text style={styles.label}>이메일 (선택)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="알림 수신용 이메일"
+                placeholderTextColor={Colors.textTertiary}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
             </View>
 
             <TouchableOpacity style={styles.signupButton} onPress={handleSignup}>
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     color: Colors.text,
     backgroundColor: Colors.surface,
   },
-  usernameInputWrapper: {
+  loginIdInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 52,
@@ -204,12 +204,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     overflow: 'hidden',
   },
-  usernamePrefix: {
+  loginIdPrefix: {
     paddingLeft: 16,
     fontSize: 16,
     color: Colors.textSecondary,
   },
-  usernameInput: {
+  loginIdInput: {
     flex: 1,
     height: '100%',
     fontSize: 16,

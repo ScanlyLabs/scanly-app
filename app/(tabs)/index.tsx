@@ -17,14 +17,14 @@ const QR_SIZE = width * 0.6;
 
 // 더미 데이터
 const mockUser = {
-  username: 'hong',
+  loginId: 'hong',
   name: '홍길동',
   title: 'Product Manager',
   company: 'ABC Company',
 };
 
 export default function HomeScreen() {
-  const qrValue = `https://scanly.io/u/${mockUser.username}`;
+  const qrValue = `https://scanly.io/u/${mockUser.loginId}`;
 
   const handleShare = async () => {
     try {

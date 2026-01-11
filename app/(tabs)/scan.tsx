@@ -21,11 +21,11 @@ export default function ScanScreen() {
     if (scanned) return;
     setScanned(true);
 
-    // scanly.io/u/{username} 형식 확인
+    // scanly.io/u/{loginId} 형식 확인
     const match = data.match(/scanly\.io\/u\/([a-zA-Z0-9_]+)/);
     if (match) {
-      const username = match[1];
-      router.push(`/card/${username}`);
+      const loginId = match[1];
+      router.push(`/card/${loginId}`);
     } else {
       setShowErrorModal(true);
     }

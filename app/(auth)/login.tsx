@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../src/constants/colors';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
+  const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
 
   const handleLogin = () => {
@@ -40,11 +40,10 @@ export default function LoginScreen() {
         <View style={styles.form}>
           <TextInput
             style={styles.input}
-            placeholder="이메일"
+            placeholder="아이디"
             placeholderTextColor={Colors.textTertiary}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
+            value={loginId}
+            onChangeText={setLoginId}
             autoCapitalize="none"
           />
           <TextInput

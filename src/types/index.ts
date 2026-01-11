@@ -1,7 +1,7 @@
 export interface Member {
   id: string;
-  email: string;
-  username: string;
+  loginId: string;
+  email?: string;
   createdAt: string;
 }
 
