@@ -20,14 +20,60 @@ export default function LoginScreen() {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<{
+    loginId?: string;
+    password?: string;
+  }>({});
+
+  const validateLoginId = (value: string): string | undefined => {
+    if (!value.trim()) {
+      return '아이디를 입력해주세요.';
+    }
+    if (value.length < 3 || value.length > 20) {
+      return '아이디는 3-20자여야 합니다.';
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(value)) {
+      return '영문, 숫자, 언더스코어만 사용 가능합니다.';
+    }
+    return undefined;
+  };
+
+  const validatePassword = (value: string): string | undefined => {
+    if (!value.trim()) {
+      return '비밀번호를 입력해주세요.';
+    }
+    if (value.length < 8) {
+      return '비밀번호는 8자 이상이어야 합니다.';
+    }
+    if (!/(?=.*[A-Za-z])(?=.*\d)/.test(value)) {
+      return '영문과 숫자를 포함해야 합니다.';
+    }
+    return undefined;
+  };
+
+  const handleLoginIdChange = (value: string) => {
+    setLoginId(value);
+    if (errors.loginId) {
+      setErrors((prev) => ({ ...prev, loginId: undefined }));
+    }
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    if (errors.password) {
+      setErrors((prev) => ({ ...prev, password: undefined }));
+    }
+  };
 
   const handleLogin = async () => {
-    if (!loginId.trim()) {
-      Alert.alert('알림', '아이디를 입력해주세요.');
-      return;
-    }
-    if (!password.trim()) {
-      Alert.alert('알림', '비밀번호를 입력해주세요.');
+    const loginIdError = validateLoginId(loginId);
+    const passwordError = validatePassword(password);
+
+    if (loginIdError || passwordError) {
+      setErrors({
+        loginId: loginIdError,
+        password: passwordError,
+      });
       return;
     }
 
@@ -37,7 +83,14 @@ export default function LoginScreen() {
       router.replace('/(tabs)');
     } catch (error) {
       if (error instanceof ApiError) {
-        Alert.alert('로그인 실패', error.message);
+        if (error.code === 'AT001' || error.code === 'M002') {
+          setErrors({
+            loginId: ' ',
+            password: '아이디 또는 비밀번호가 올바르지 않습니다.',
+          });
+        } else {
+          Alert.alert('로그인 실패', error.message);
+        }
       } else {
         Alert.alert('오류', '네트워크 오류가 발생했습니다. 다시 시도해주세요.');
       }
@@ -63,24 +116,34 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="아이디"
-            placeholderTextColor={Colors.textTertiary}
-            value={loginId}
-            onChangeText={setLoginId}
-            autoCapitalize="none"
-            editable={!isLoading}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="비밀번호"
-            placeholderTextColor={Colors.textTertiary}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            editable={!isLoading}
-          />
+          <View style={styles.inputGroup}>
+            <TextInput
+              style={[styles.input, errors.loginId && styles.inputError]}
+              placeholder="아이디"
+              placeholderTextColor={Colors.textTertiary}
+              value={loginId}
+              onChangeText={handleLoginIdChange}
+              autoCapitalize="none"
+              editable={!isLoading}
+            />
+            {errors.loginId && errors.loginId !== ' ' && (
+              <Text style={styles.errorText}>{errors.loginId}</Text>
+            )}
+          </View>
+          <View style={styles.inputGroup}>
+            <TextInput
+              style={[styles.input, errors.password && styles.inputError]}
+              placeholder="비밀번호"
+              placeholderTextColor={Colors.textTertiary}
+              value={password}
+              onChangeText={handlePasswordChange}
+              secureTextEntry
+              editable={!isLoading}
+            />
+            {errors.password && (
+              <Text style={styles.errorText}>{errors.password}</Text>
+            )}
+          </View>
 
           <TouchableOpacity
             style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
@@ -162,6 +225,9 @@ const styles = StyleSheet.create({
   form: {
     gap: 16,
   },
+  inputGroup: {
+    gap: 6,
+  },
   input: {
     height: 52,
     borderWidth: 1,
@@ -171,6 +237,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.text,
     backgroundColor: Colors.surface,
+  },
+  inputError: {
+    borderColor: Colors.error,
+  },
+  errorText: {
+    fontSize: 12,
+    color: Colors.error,
   },
   loginButton: {
     height: 52,
