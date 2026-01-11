@@ -7,11 +7,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../src/constants/colors';
+import { memberApi } from '../../src/api/member';
+import { ApiError } from '../../src/api/client';
 
 export default function SignupScreen() {
   const [loginId, setLoginId] = useState('');
@@ -19,20 +23,100 @@ export default function SignupScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [email, setEmail] = useState('');
   const [loginIdValid, setLoginIdValid] = useState<boolean | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<{
+    loginId?: string;
+    password?: string;
+    confirmPassword?: string;
+  }>({});
+
+  const validateLoginId = (value: string): string | undefined => {
+    if (value.length < 3 || value.length > 20) {
+      return '아이디는 3-20자여야 합니다.';
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(value)) {
+      return '영문, 숫자, 언더스코어만 사용 가능합니다.';
+    }
+    return undefined;
+  };
+
+  const validatePassword = (value: string): string | undefined => {
+    if (value.length < 8) {
+      return '비밀번호는 8자 이상이어야 합니다.';
+    }
+    if (!/(?=.*[A-Za-z])(?=.*\d)/.test(value)) {
+      return '영문과 숫자를 포함해야 합니다.';
+    }
+    return undefined;
+  };
 
   const checkLoginId = (value: string) => {
     setLoginId(value);
-    // TODO: 실제 중복 체크 API 호출
-    if (value.length >= 3) {
-      setLoginIdValid(true);
-    } else {
+    const error = validateLoginId(value);
+    if (error) {
       setLoginIdValid(null);
+      setErrors((prev) => ({ ...prev, loginId: error }));
+    } else {
+      setLoginIdValid(true);
+      setErrors((prev) => ({ ...prev, loginId: undefined }));
     }
   };
 
-  const handleSignup = () => {
-    // TODO: 회원가입 API 호출
-    router.replace('/(auth)/create-card');
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    const error = validatePassword(value);
+    setErrors((prev) => ({ ...prev, password: error }));
+  };
+
+  const handleConfirmPasswordChange = (value: string) => {
+    setConfirmPassword(value);
+    if (value !== password) {
+      setErrors((prev) => ({ ...prev, confirmPassword: '비밀번호가 일치하지 않습니다.' }));
+    } else {
+      setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+    }
+  };
+
+  const handleSignup = async () => {
+    // Validation
+    const loginIdError = validateLoginId(loginId);
+    const passwordError = validatePassword(password);
+    const confirmPasswordError = password !== confirmPassword ? '비밀번호가 일치하지 않습니다.' : undefined;
+
+    if (loginIdError || passwordError || confirmPasswordError) {
+      setErrors({
+        loginId: loginIdError,
+        password: passwordError,
+        confirmPassword: confirmPasswordError,
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await memberApi.signUp({
+        loginId,
+        password,
+        email: email || undefined,
+      });
+
+      Alert.alert('회원가입 완료', '회원가입이 완료되었습니다.', [
+        { text: '확인', onPress: () => router.replace('/(auth)/create-card') },
+      ]);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        if (error.code === 'M003') {
+          setLoginIdValid(false);
+          setErrors((prev) => ({ ...prev, loginId: '이미 사용 중인 아이디입니다.' }));
+        } else {
+          Alert.alert('회원가입 실패', error.message);
+        }
+      } else {
+        Alert.alert('오류', '네트워크 오류가 발생했습니다. 다시 시도해주세요.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -60,7 +144,10 @@ export default function SignupScreen() {
           <View style={styles.form}>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>아이디 (URL에 사용됩니다)</Text>
-              <View style={styles.loginIdInputWrapper}>
+              <View style={[
+                styles.loginIdInputWrapper,
+                errors.loginId && styles.inputError
+              ]}>
                 <Text style={styles.loginIdPrefix}>scanly.io/u/</Text>
                 <TextInput
                   style={styles.loginIdInput}
@@ -69,16 +156,17 @@ export default function SignupScreen() {
                   value={loginId}
                   onChangeText={checkLoginId}
                   autoCapitalize="none"
+                  editable={!isLoading}
                 />
               </View>
-              {loginIdValid === true && (
+              {loginIdValid === true && !errors.loginId && (
                 <Text style={styles.validText}>
                   ✓ 사용 가능한 아이디입니다
                 </Text>
               )}
-              {loginIdValid === false && (
+              {errors.loginId && (
                 <Text style={styles.invalidText}>
-                  ✗ 이미 사용 중인 아이디입니다
+                  ✗ {errors.loginId}
                 </Text>
               )}
             </View>
@@ -86,25 +174,33 @@ export default function SignupScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>비밀번호</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, errors.password && styles.inputError]}
                 placeholder="8자 이상, 영문+숫자 조합"
                 placeholderTextColor={Colors.textTertiary}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={handlePasswordChange}
                 secureTextEntry
+                editable={!isLoading}
               />
+              {errors.password && (
+                <Text style={styles.invalidText}>✗ {errors.password}</Text>
+              )}
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>비밀번호 확인</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, errors.confirmPassword && styles.inputError]}
                 placeholder="비밀번호를 다시 입력하세요"
                 placeholderTextColor={Colors.textTertiary}
                 value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                onChangeText={handleConfirmPasswordChange}
                 secureTextEntry
+                editable={!isLoading}
               />
+              {errors.confirmPassword && (
+                <Text style={styles.invalidText}>✗ {errors.confirmPassword}</Text>
+              )}
             </View>
 
             <View style={styles.inputGroup}>
@@ -117,11 +213,20 @@ export default function SignupScreen() {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                editable={!isLoading}
               />
             </View>
 
-            <TouchableOpacity style={styles.signupButton} onPress={handleSignup}>
-              <Text style={styles.signupButtonText}>가입하기</Text>
+            <TouchableOpacity
+              style={[styles.signupButton, isLoading && styles.signupButtonDisabled]}
+              onPress={handleSignup}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color={Colors.white} />
+              ) : (
+                <Text style={styles.signupButtonText}>가입하기</Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -194,6 +299,9 @@ const styles = StyleSheet.create({
     color: Colors.text,
     backgroundColor: Colors.surface,
   },
+  inputError: {
+    borderColor: Colors.error,
+  },
   loginIdInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -231,6 +339,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 12,
+  },
+  signupButtonDisabled: {
+    opacity: 0.7,
   },
   signupButtonText: {
     color: Colors.white,
