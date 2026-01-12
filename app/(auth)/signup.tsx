@@ -16,7 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../src/constants/colors';
 import { memberApi } from '../../src/api/member';
 import { ApiError } from '../../src/api/client';
-import { storage } from '../../src/utils/storage';
 
 export default function SignupScreen() {
   const [loginId, setLoginId] = useState('');
@@ -95,17 +94,14 @@ export default function SignupScreen() {
 
     setIsLoading(true);
     try {
-      const response = await memberApi.signUp({
+      await memberApi.signUp({
         loginId,
         password,
         email: email || undefined,
       });
 
-      await storage.setMemberId(response.id);
-      await storage.setLoginId(response.loginId);
-
-      Alert.alert('회원가입 완료', '회원가입이 완료되었습니다.', [
-        { text: '확인', onPress: () => router.replace('/card/register') },
+      Alert.alert('회원가입 완료', '회원가입이 완료되었습니다. 로그인해주세요.', [
+        { text: '확인', onPress: () => router.replace('/(auth)/login') },
       ]);
     } catch (error) {
       if (error instanceof ApiError) {
