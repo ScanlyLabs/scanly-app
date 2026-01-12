@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,11 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { cardApi, ReadMeCardResponse } from '../../src/api/card';
+import { storage } from '../../src/utils/storage';
 
 interface SocialLink {
   type: string;
@@ -34,12 +36,46 @@ export default function MyCardScreen() {
   const [card, setCard] = useState<CardInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // TODO: API 연동
-    // 명함이 없는 상태로 시작
-    setIsLoading(false);
-    setCard(null);
+  const fetchMyCard = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const memberId = await storage.getMemberId();
+
+      if (!memberId) {
+        setCard(null);
+        return;
+      }
+
+      const cardData = await cardApi.getMe(memberId);
+      if (cardData) {
+        setCard({
+          name: cardData.name,
+          title: cardData.title,
+          company: cardData.company,
+          phone: cardData.phone,
+          email: cardData.email,
+          bio: cardData.bio,
+          portfolio: cardData.portfolioUrl,
+          location: cardData.location,
+          profileImage: cardData.profileImageUrl,
+          socialLinks: cardData.socialLinks,
+        });
+      } else {
+        setCard(null);
+      }
+    } catch (error) {
+      console.error('Failed to fetch my card:', error);
+      setCard(null);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchMyCard();
+    }, [fetchMyCard])
+  );
 
   const getSocialIcon = (type: string) => {
     switch (type) {

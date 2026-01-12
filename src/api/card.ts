@@ -47,9 +47,29 @@ export interface RegisterCardResponse {
   createdAt: string;
 }
 
+export interface ReadMeCardResponse {
+  id: string;
+  name: string;
+  title: string;
+  company: string;
+  phone: string;
+  email: string;
+  bio: string | null;
+  socialLinks: SocialLinkResponse[];
+  profileImageUrl: string | null;
+  portfolioUrl: string | null;
+  location: string | null;
+  qrImageUrl: string | null;
+}
+
 export const cardApi = {
   register: (memberId: string, data: RegisterCardRequest) =>
     api.post<RegisterCardResponse>('/api/cards/v1', data, {
+      'X-Member-Id': memberId,
+    }),
+
+  getMe: (memberId: string) =>
+    api.get<ReadMeCardResponse>('/api/cards/v1/me', {
       'X-Member-Id': memberId,
     }),
 };
