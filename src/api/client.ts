@@ -31,9 +31,13 @@ class ApiError extends Error {
   }
 }
 
+interface RequestOptions extends Omit<RequestInit, 'headers'> {
+  headers?: Record<string, string>;
+}
+
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestOptions = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
@@ -59,21 +63,25 @@ async function request<T>(
 }
 
 export const api = {
-  get: <T>(endpoint: string) => request<T>(endpoint, { method: 'GET' }),
+  get: <T>(endpoint: string, headers?: Record<string, string>) =>
+    request<T>(endpoint, { method: 'GET', headers }),
 
-  post: <T>(endpoint: string, data?: unknown) =>
+  post: <T>(endpoint: string, data?: unknown, headers?: Record<string, string>) =>
     request<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
+      headers,
     }),
 
-  put: <T>(endpoint: string, data?: unknown) =>
+  put: <T>(endpoint: string, data?: unknown, headers?: Record<string, string>) =>
     request<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
+      headers,
     }),
 
-  delete: <T>(endpoint: string) => request<T>(endpoint, { method: 'DELETE' }),
+  delete: <T>(endpoint: string, headers?: Record<string, string>) =>
+    request<T>(endpoint, { method: 'DELETE', headers }),
 };
 
 export { ApiError };
