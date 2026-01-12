@@ -10,6 +10,8 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -225,14 +227,30 @@ export default function RegisterCardScreen() {
     }
   };
 
-  const socialTypes: { value: SocialLinkType; label: string }[] = [
-    { value: 'LINKEDIN', label: 'LinkedIn' },
-    { value: 'GITHUB', label: 'GitHub' },
-    { value: 'INSTAGRAM', label: 'Instagram' },
-    { value: 'TWITTER', label: 'Twitter' },
-    { value: 'FACEBOOK', label: 'Facebook' },
-    { value: 'OTHER', label: '기타' },
+  const socialTypes: { value: SocialLinkType; label: string; icon: string }[] = [
+    { value: 'LINKEDIN', label: 'LinkedIn', icon: 'logo-linkedin' },
+    { value: 'GITHUB', label: 'GitHub', icon: 'logo-github' },
+    { value: 'INSTAGRAM', label: 'Instagram', icon: 'logo-instagram' },
+    { value: 'TWITTER', label: 'Twitter', icon: 'logo-twitter' },
+    { value: 'FACEBOOK', label: 'Facebook', icon: 'logo-facebook' },
+    { value: 'OTHER', label: '기타', icon: 'link-outline' },
   ];
+
+  const [socialTypeModalVisible, setSocialTypeModalVisible] = useState(false);
+  const [selectedLinkIndex, setSelectedLinkIndex] = useState<number | null>(null);
+
+  const openSocialTypeModal = (index: number) => {
+    setSelectedLinkIndex(index);
+    setSocialTypeModalVisible(true);
+  };
+
+  const selectSocialType = (type: SocialLinkType) => {
+    if (selectedLinkIndex !== null) {
+      updateSocialLink(selectedLinkIndex, 'type', type);
+    }
+    setSocialTypeModalVisible(false);
+    setSelectedLinkIndex(null);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -394,48 +412,50 @@ export default function RegisterCardScreen() {
               <Text style={styles.errorText}>{errors.socialLinks}</Text>
             )}
 
-            {socialLinks.map((link, index) => (
-              <View key={index} style={styles.socialLinkRow}>
-                <View style={styles.socialTypeContainer}>
+            {socialLinks.map((link, index) => {
+              const currentType = socialTypes.find((t) => t.value === link.type);
+              return (
+                <View key={index} style={styles.socialLinkRow}>
+                  <View style={styles.socialTypeContainer}>
+                    <TouchableOpacity
+                      style={styles.socialTypeButton}
+                      onPress={() => openSocialTypeModal(index)}
+                      disabled={isLoading}
+                    >
+                      <Ionicons
+                        name={currentType?.icon as any}
+                        size={18}
+                        color={Colors.primary}
+                      />
+                      <Text style={styles.socialTypeText}>
+                        {currentType?.label}
+                      </Text>
+                      <Ionicons
+                        name="chevron-down"
+                        size={16}
+                        color={Colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  <TextInput
+                    style={[styles.input, styles.socialUrlInput]}
+                    placeholder="URL 입력 (최대 500자)"
+                    placeholderTextColor={Colors.textTertiary}
+                    value={link.url}
+                    onChangeText={(value) => updateSocialLink(index, 'url', value)}
+                    autoCapitalize="none"
+                    maxLength={500}
+                    editable={!isLoading}
+                  />
                   <TouchableOpacity
-                    style={styles.socialTypeButton}
-                    onPress={() => {
-                      const currentIndex = socialTypes.findIndex(
-                        (t) => t.value === link.type
-                      );
-                      const nextIndex = (currentIndex + 1) % socialTypes.length;
-                      updateSocialLink(index, 'type', socialTypes[nextIndex].value);
-                    }}
+                    onPress={() => removeSocialLink(index)}
                     disabled={isLoading}
                   >
-                    <Text style={styles.socialTypeText}>
-                      {socialTypes.find((t) => t.value === link.type)?.label}
-                    </Text>
-                    <Ionicons
-                      name="chevron-down"
-                      size={16}
-                      color={Colors.textSecondary}
-                    />
+                    <Ionicons name="close-circle" size={24} color={Colors.error} />
                   </TouchableOpacity>
                 </View>
-                <TextInput
-                  style={[styles.input, styles.socialUrlInput]}
-                  placeholder="URL 입력 (최대 500자)"
-                  placeholderTextColor={Colors.textTertiary}
-                  value={link.url}
-                  onChangeText={(value) => updateSocialLink(index, 'url', value)}
-                  autoCapitalize="none"
-                  maxLength={500}
-                  editable={!isLoading}
-                />
-                <TouchableOpacity
-                  onPress={() => removeSocialLink(index)}
-                  disabled={isLoading}
-                >
-                  <Ionicons name="close-circle" size={24} color={Colors.error} />
-                </TouchableOpacity>
-              </View>
-            ))}
+              );
+            })}
           </View>
 
           <View style={styles.section}>
@@ -473,6 +493,52 @@ export default function RegisterCardScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={socialTypeModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSocialTypeModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setSocialTypeModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>소셜 링크 유형 선택</Text>
+              <TouchableOpacity onPress={() => setSocialTypeModalVisible(false)}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalOptions}>
+              {socialTypes.map((type) => (
+                <TouchableOpacity
+                  key={type.value}
+                  style={styles.modalOption}
+                  onPress={() => selectSocialType(type.value)}
+                >
+                  <Ionicons
+                    name={type.icon as any}
+                    size={24}
+                    color={Colors.primary}
+                  />
+                  <Text style={styles.modalOptionText}>{type.label}</Text>
+                  {selectedLinkIndex !== null &&
+                    socialLinks[selectedLinkIndex]?.type === type.value && (
+                      <Ionicons
+                        name="checkmark"
+                        size={24}
+                        color={Colors.primary}
+                        style={styles.modalCheckIcon}
+                      />
+                    )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -576,12 +642,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   socialTypeContainer: {
-    width: 100,
+    width: 130,
   },
   socialTypeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 6,
     backgroundColor: Colors.surface,
     borderRadius: 12,
     paddingHorizontal: 12,
@@ -590,11 +656,57 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderLight,
   },
   socialTypeText: {
+    flex: 1,
     fontSize: 14,
     color: Colors.text,
   },
   socialUrlInput: {
     flex: 1,
     marginBottom: 0,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  modalOptions: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  modalOptionText: {
+    flex: 1,
+    fontSize: 16,
+    color: Colors.text,
+  },
+  modalCheckIcon: {
+    marginLeft: 'auto',
   },
 });
