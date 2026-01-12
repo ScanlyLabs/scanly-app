@@ -27,11 +27,11 @@ interface CheckLoginIdResponse {
 
 export const memberApi = {
   signUp: (data: SignUpRequest) =>
-    api.post<SignUpResponse>('/api/member/v1/sign-up', data),
+    api.post<SignUpResponse>('/api/members/v1/sign-up', data),
 
   login: (data: LoginRequest) =>
-    api.post<LoginResponse>('/api/member/v1/login', data),
+    api.post<LoginResponse>('/api/members/v1/login', data),
 
   checkLoginId: (loginId: string) =>
-    api.get<CheckLoginIdResponse>(`/api/member/v1/check-login-id?loginId=${loginId}`),
+    api.get<CheckLoginIdResponse>(`/api/members/v1/check-login-id?loginId=${loginId}`),
 };
