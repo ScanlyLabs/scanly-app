@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,12 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import { Colors } from '../../src/constants/colors';
+import { cardApi, ReadMeCardResponse } from '../../src/api/card';
+import { storage } from '../../src/utils/storage';
 
 const { width } = Dimensions.get('window');
 const QR_SIZE = width * 0.6;
@@ -27,12 +29,41 @@ export default function HomeScreen() {
   const [card, setCard] = useState<CardInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // TODO: API 연동
-    // 명함이 없는 상태로 시작
-    setIsLoading(false);
-    setCard(null);
+  const fetchMyCard = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const memberId = await storage.getMemberId();
+      const loginId = await storage.getLoginId();
+
+      if (!memberId || !loginId) {
+        setCard(null);
+        return;
+      }
+
+      const cardData = await cardApi.getMe(memberId);
+      if (cardData) {
+        setCard({
+          loginId,
+          name: cardData.name,
+          title: cardData.title,
+          company: cardData.company,
+        });
+      } else {
+        setCard(null);
+      }
+    } catch (error) {
+      console.error('Failed to fetch my card:', error);
+      setCard(null);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchMyCard();
+    }, [fetchMyCard])
+  );
 
   const qrValue = card ? `https://scanly.io/u/${card.loginId}` : '';
 
