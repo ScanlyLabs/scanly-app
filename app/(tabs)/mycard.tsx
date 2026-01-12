@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,24 +12,35 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 
-// 더미 데이터
-const mockCard = {
-  name: '홍길동',
-  title: 'Product Manager',
-  company: 'ABC Company',
-  phone: '010-1234-5678',
-  email: 'hong@abc.com',
-  bio: '10년차 PM으로 B2B SaaS 제품을 만들고 있습니다.',
-  portfolio: 'https://portfolio.com/hong',
-  location: '서울시 강남구',
-  profileImage: null,
-  socialLinks: [
-    { type: 'LINKEDIN', url: 'linkedin.com/in/hong' },
-    { type: 'GITHUB', url: 'github.com/hong' },
-  ],
-};
+interface SocialLink {
+  type: string;
+  url: string;
+}
+
+interface CardInfo {
+  name: string;
+  title: string;
+  company: string;
+  phone: string;
+  email: string;
+  bio: string | null;
+  portfolio: string | null;
+  location: string | null;
+  profileImage: string | null;
+  socialLinks: SocialLink[];
+}
 
 export default function MyCardScreen() {
+  const [card, setCard] = useState<CardInfo | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // TODO: API 연동
+    // 명함이 없는 상태로 시작
+    setIsLoading(false);
+    setCard(null);
+  }, []);
+
   const getSocialIcon = (type: string) => {
     switch (type) {
       case 'LINKEDIN':
@@ -44,6 +56,54 @@ export default function MyCardScreen() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>내 명함</Text>
+          <TouchableOpacity onPress={() => router.push('/settings')}>
+            <Ionicons name="settings-outline" size={24} color={Colors.text} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>로딩 중...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Empty State: 명함이 없는 경우
+  if (!card) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>내 명함</Text>
+          <TouchableOpacity onPress={() => router.push('/settings')}>
+            <Ionicons name="settings-outline" size={24} color={Colors.text} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name="person-outline" size={64} color={Colors.textTertiary} />
+          </View>
+          <Text style={styles.emptyTitle}>등록된 명함이 없어요</Text>
+          <Text style={styles.emptyDescription}>
+            명함을 만들어 나를 소개해보세요{'\n'}연락처, 소셜 링크 등을 추가할 수 있어요
+          </Text>
+          <TouchableOpacity
+            style={styles.registerButton}
+            onPress={() => router.push('/card/register')}
+          >
+            <Ionicons name="add" size={20} color={Colors.white} />
+            <Text style={styles.registerButtonText}>명함 만들기</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // 명함이 있는 경우
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -59,15 +119,15 @@ export default function MyCardScreen() {
       >
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
-            {mockCard.profileImage ? (
+            {card.profileImage ? (
               <Image
-                source={{ uri: mockCard.profileImage }}
+                source={{ uri: card.profileImage }}
                 style={styles.avatar}
               />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Text style={styles.avatarText}>
-                  {mockCard.name.charAt(0)}
+                  {card.name.charAt(0)}
                 </Text>
               </View>
             )}
@@ -76,9 +136,9 @@ export default function MyCardScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.name}>{mockCard.name}</Text>
-          <Text style={styles.titleText}>{mockCard.title}</Text>
-          <Text style={styles.company}>{mockCard.company}</Text>
+          <Text style={styles.name}>{card.name}</Text>
+          <Text style={styles.titleText}>{card.title}</Text>
+          <Text style={styles.company}>{card.company}</Text>
         </View>
 
         <View style={styles.section}>
@@ -86,26 +146,26 @@ export default function MyCardScreen() {
 
           <View style={styles.infoRow}>
             <Ionicons name="call-outline" size={20} color={Colors.textSecondary} />
-            <Text style={styles.infoText}>{mockCard.phone}</Text>
+            <Text style={styles.infoText}>{card.phone}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Ionicons name="mail-outline" size={20} color={Colors.textSecondary} />
-            <Text style={styles.infoText}>{mockCard.email}</Text>
+            <Text style={styles.infoText}>{card.email}</Text>
           </View>
         </View>
 
-        {mockCard.bio && (
+        {card.bio && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>자기소개</Text>
-            <Text style={styles.bioText}>{mockCard.bio}</Text>
+            <Text style={styles.bioText}>{card.bio}</Text>
           </View>
         )}
 
-        {mockCard.socialLinks.length > 0 && (
+        {card.socialLinks.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>소셜 링크</Text>
-            {mockCard.socialLinks.map((link, index) => (
+            {card.socialLinks.map((link, index) => (
               <View key={index} style={styles.infoRow}>
                 <Ionicons
                   name={getSocialIcon(link.type) as any}
@@ -118,21 +178,21 @@ export default function MyCardScreen() {
           </View>
         )}
 
-        {(mockCard.portfolio || mockCard.location) && (
+        {(card.portfolio || card.location) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>추가 정보</Text>
 
-            {mockCard.portfolio && (
+            {card.portfolio && (
               <View style={styles.infoRow}>
                 <Ionicons name="briefcase-outline" size={20} color={Colors.textSecondary} />
-                <Text style={styles.infoText}>{mockCard.portfolio}</Text>
+                <Text style={styles.infoText}>{card.portfolio}</Text>
               </View>
             )}
 
-            {mockCard.location && (
+            {card.location && (
               <View style={styles.infoRow}>
                 <Ionicons name="location-outline" size={20} color={Colors.textSecondary} />
-                <Text style={styles.infoText}>{mockCard.location}</Text>
+                <Text style={styles.infoText}>{card.location}</Text>
               </View>
             )}
           </View>
@@ -163,6 +223,58 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: Colors.text,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: Colors.borderLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 12,
+  },
+  emptyDescription: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  registerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  registerButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.white,
   },
   content: {
     paddingHorizontal: 20,

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,21 +16,31 @@ import { Colors } from '../../src/constants/colors';
 const { width } = Dimensions.get('window');
 const QR_SIZE = width * 0.6;
 
-// 더미 데이터
-const mockUser = {
-  loginId: 'hong',
-  name: '홍길동',
-  title: 'Product Manager',
-  company: 'ABC Company',
-};
+interface CardInfo {
+  loginId: string;
+  name: string;
+  title: string;
+  company: string;
+}
 
 export default function HomeScreen() {
-  const qrValue = `https://scanly.io/u/${mockUser.loginId}`;
+  const [card, setCard] = useState<CardInfo | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // TODO: API 연동
+    // 명함이 없는 상태로 시작
+    setIsLoading(false);
+    setCard(null);
+  }, []);
+
+  const qrValue = card ? `https://scanly.io/u/${card.loginId}` : '';
 
   const handleShare = async () => {
+    if (!card) return;
     try {
       await Share.share({
-        message: `${mockUser.name}의 명함입니다: ${qrValue}`,
+        message: `${card.name}의 명함입니다: ${qrValue}`,
         url: qrValue,
       });
     } catch (error) {
@@ -42,6 +53,62 @@ export default function HomeScreen() {
     console.log('Save QR');
   };
 
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.logo}>Scanly</Text>
+          <TouchableOpacity onPress={() => router.push('/settings')}>
+            <Ionicons name="settings-outline" size={24} color={Colors.text} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>로딩 중...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Empty State: 명함이 없는 경우
+  if (!card) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.logo}>Scanly</Text>
+          <TouchableOpacity onPress={() => router.push('/settings')}>
+            <Ionicons name="settings-outline" size={24} color={Colors.text} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name="card-outline" size={64} color={Colors.textTertiary} />
+          </View>
+          <Text style={styles.emptyTitle}>아직 명함이 없어요</Text>
+          <Text style={styles.emptyDescription}>
+            나만의 디지털 명함을 만들어{'\n'}QR 코드로 공유해보세요
+          </Text>
+          <TouchableOpacity
+            style={styles.registerButton}
+            onPress={() => router.push('/card/register')}
+          >
+            <Ionicons name="add" size={20} color={Colors.white} />
+            <Text style={styles.registerButtonText}>명함 만들기</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={styles.scanButton}
+          onPress={() => router.push('/(tabs)/scan')}
+        >
+          <Ionicons name="scan" size={24} color={Colors.white} />
+          <Text style={styles.scanButtonText}>스캔하기</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  // 명함이 있는 경우
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -63,9 +130,9 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>{mockUser.name}</Text>
-            <Text style={styles.userTitle}>{mockUser.title}</Text>
-            <Text style={styles.userCompany}>{mockUser.company}</Text>
+            <Text style={styles.userName}>{card.name}</Text>
+            <Text style={styles.userTitle}>{card.title}</Text>
+            <Text style={styles.userCompany}>{card.company}</Text>
           </View>
 
           <Text style={styles.qrUrl}>{qrValue}</Text>
@@ -111,6 +178,58 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: Colors.primary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: Colors.borderLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 12,
+  },
+  emptyDescription: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  registerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  registerButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.white,
   },
   content: {
     flex: 1,
