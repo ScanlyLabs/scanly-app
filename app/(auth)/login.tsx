@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../src/constants/colors';
 import { memberApi } from '../../src/api/member';
 import { ApiError } from '../../src/api/client';
+import { storage } from '../../src/utils/storage';
 
 export default function LoginScreen() {
   const [loginId, setLoginId] = useState('');
@@ -79,7 +80,9 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      await memberApi.login({ loginId, password });
+      const response = await memberApi.login({ loginId, password });
+      await storage.setMemberId(response.id);
+      await storage.setLoginId(response.loginId);
       router.replace('/(tabs)');
     } catch (error) {
       if (error instanceof ApiError) {

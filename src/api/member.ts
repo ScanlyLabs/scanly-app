@@ -7,6 +7,7 @@ interface SignUpRequest {
 }
 
 interface SignUpResponse {
+  id: string;
   loginId: string;
 }
 
@@ -16,7 +17,8 @@ interface LoginRequest {
 }
 
 interface LoginResponse {
-  // 현재 빈 응답
+  id: string;
+  loginId: string;
 }
 
 interface CheckLoginIdResponse {
