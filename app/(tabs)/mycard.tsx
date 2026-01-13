@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -89,6 +90,31 @@ export default function MyCardScreen() {
         return 'logo-twitter';
       default:
         return 'link-outline';
+    }
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      '명함 삭제',
+      '명함을 삭제하시겠습니까?\n삭제된 명함은 복구할 수 없습니다.',
+      [
+        { text: '취소', style: 'cancel' },
+        { text: '삭제', style: 'destructive', onPress: deleteCard },
+      ]
+    );
+  };
+
+  const deleteCard = async () => {
+    try {
+      const memberId = await storage.getMemberId();
+      if (!memberId) return;
+
+      await cardApi.deleteMe(memberId);
+      setCard(null);
+      Alert.alert('완료', '명함이 삭제되었습니다.');
+    } catch (error) {
+      console.error('Failed to delete card:', error);
+      Alert.alert('오류', '명함 삭제에 실패했습니다. 다시 시도해주세요.');
     }
   };
 
@@ -234,13 +260,23 @@ export default function MyCardScreen() {
           </View>
         )}
 
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => router.push('/card/edit')}
-        >
-          <Ionicons name="create-outline" size={20} color={Colors.white} />
-          <Text style={styles.editButtonText}>명함 수정</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => router.push('/card/edit')}
+          >
+            <Ionicons name="create-outline" size={20} color={Colors.white} />
+            <Text style={styles.editButtonText}>명함 수정</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={handleDelete}
+          >
+            <Ionicons name="trash-outline" size={20} color={Colors.error} />
+            <Text style={styles.deleteButtonText}>명함 삭제</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -400,6 +436,10 @@ const styles = StyleSheet.create({
     color: Colors.text,
     lineHeight: 24,
   },
+  buttonContainer: {
+    marginTop: 32,
+    gap: 12,
+  },
   editButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -408,11 +448,26 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     paddingVertical: 16,
     borderRadius: 12,
-    marginTop: 32,
   },
   editButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: Colors.white,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.background,
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.error,
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.error,
   },
 });

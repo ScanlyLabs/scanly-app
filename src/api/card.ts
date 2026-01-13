@@ -79,4 +79,9 @@ export const cardApi = {
     api.post<ReadMeCardResponse>('/api/cards/v1/me/update', data, {
       'X-Member-Id': memberId,
     }),
+
+  deleteMe: (memberId: string) =>
+    api.post<void>('/api/cards/v1/me/delete', undefined, {
+      'X-Member-Id': memberId,
+    }),
 };
