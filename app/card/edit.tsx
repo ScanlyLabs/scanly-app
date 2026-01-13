@@ -231,6 +231,17 @@ export default function EditCardScreen() {
       return;
     }
 
+    Alert.alert(
+      '명함 수정',
+      '명함을 수정하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        { text: '수정', onPress: () => submitCard(memberId) },
+      ]
+    );
+  };
+
+  const submitCard = async (memberId: string) => {
     setIsLoading(true);
     try {
       const requestData: UpdateCardRequest = {

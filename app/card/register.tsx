@@ -191,13 +191,24 @@ export default function RegisterCardScreen() {
       return;
     }
 
+    Alert.alert(
+      '명함 등록',
+      '명함을 등록하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        { text: '등록', onPress: () => submitCard(memberId) },
+      ]
+    );
+  };
+
+  const submitCard = async (memberId: string) => {
     setIsLoading(true);
     try {
       const requestData: RegisterCardRequest = {
         name: name.trim(),
         title: title.trim(),
         company: company.trim(),
-        phone: phone.replace(/\D/g, ''), // 숫자만 전송
+        phone: phone.replace(/\D/g, ''),
         email: email.trim(),
         bio: bio.trim() || undefined,
         portfolioUrl: portfolio.trim() || undefined,
