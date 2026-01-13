@@ -1,16 +1,7 @@
-import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-const getBaseUrl = () => {
-  if (Platform.OS === 'android') {
-    // Android 에뮬레이터에서는 10.0.2.2가 호스트 머신의 localhost
-    return 'http://10.0.2.2:8080';
-  }
-  // iOS 시뮬레이터 또는 실제 기기
-  // 실제 기기에서는 컴퓨터의 IP 주소로 변경 필요
-  return 'http://192.168.0.151:8080';
-};
-
-const API_BASE_URL = getBaseUrl();
+const API_BASE_URL =
+  Constants.expoConfig?.extra?.apiBaseUrl || 'http://localhost:8080';
 
 interface ApiResponse<T> {
   success: boolean;
