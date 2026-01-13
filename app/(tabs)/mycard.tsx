@@ -234,7 +234,10 @@ export default function MyCardScreen() {
           </View>
         )}
 
-        <TouchableOpacity style={styles.editButton}>
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => router.push('/card/edit')}
+        >
           <Ionicons name="create-outline" size={20} color={Colors.white} />
           <Text style={styles.editButtonText}>명함 수정</Text>
         </TouchableOpacity>

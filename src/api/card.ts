@@ -62,6 +62,8 @@ export interface ReadMeCardResponse {
   qrImageUrl: string | null;
 }
 
+export type UpdateCardRequest = RegisterCardRequest;
+
 export const cardApi = {
   register: (memberId: string, data: RegisterCardRequest) =>
     api.post<RegisterCardResponse>('/api/cards/v1', data, {
@@ -70,6 +72,11 @@ export const cardApi = {
 
   getMe: (memberId: string) =>
     api.get<ReadMeCardResponse>('/api/cards/v1/me', {
+      'X-Member-Id': memberId,
+    }),
+
+  update: (memberId: string, data: UpdateCardRequest) =>
+    api.post<ReadMeCardResponse>('/api/cards/v1/me/update', data, {
       'X-Member-Id': memberId,
     }),
 };
