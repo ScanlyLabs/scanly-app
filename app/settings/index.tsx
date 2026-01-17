@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { authApi } from '../../src/api/auth';
 import { tokenStorage } from '../../src/utils/tokenStorage';
 import { storage } from '../../src/utils/storage';
 
@@ -54,6 +55,11 @@ export default function SettingsScreen() {
           text: '로그아웃',
           style: 'destructive',
           onPress: async () => {
+            try {
+              await authApi.logout();
+            } catch {
+              // 서버 로그아웃 실패해도 로컬 토큰은 삭제
+            }
             await tokenStorage.clearTokens();
             await storage.clear();
             router.replace('/(auth)/login');

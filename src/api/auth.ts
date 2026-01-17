@@ -14,4 +14,6 @@ interface LoginResponse {
 export const authApi = {
   login: (data: LoginRequest) =>
     api.post<LoginResponse>('/api/auth/v1/login', data),
+
+  logout: () => api.post<void>('/api/auth/v1/logout'),
 };
