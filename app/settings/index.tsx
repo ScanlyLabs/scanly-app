@@ -10,6 +10,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { tokenStorage } from '../../src/utils/tokenStorage';
+import { storage } from '../../src/utils/storage';
 
 const menuItems = [
   {
@@ -51,8 +53,9 @@ export default function SettingsScreen() {
         {
           text: '로그아웃',
           style: 'destructive',
-          onPress: () => {
-            // TODO: 로그아웃 처리
+          onPress: async () => {
+            await tokenStorage.clearTokens();
+            await storage.clear();
             router.replace('/(auth)/login');
           },
         },
