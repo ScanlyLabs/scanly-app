@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { router } from 'expo-router';
 import { tokenStorage } from '../utils/tokenStorage';
 
 const API_BASE_URL =
@@ -7,6 +8,7 @@ const API_BASE_URL =
 // 인증이 필요 없는 엔드포인트
 const PUBLIC_ENDPOINTS = [
   '/api/auth/v1/login',
+  '/api/auth/v1/reissue',
   '/api/members/v1/sign-up',
   '/api/members/v1/check-login-id',
 ];
@@ -34,13 +36,62 @@ interface RequestOptions extends Omit<RequestInit, 'headers'> {
   headers?: Record<string, string>;
 }
 
+interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+}
+
 function isPublicEndpoint(endpoint: string): boolean {
   return PUBLIC_ENDPOINTS.some((publicPath) => endpoint.startsWith(publicPath));
 }
 
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+
+async function reissueToken(): Promise<boolean> {
+  const refreshToken = await tokenStorage.getRefreshToken();
+  if (!refreshToken) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/v1/reissue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    const json: ApiResponse<TokenResponse> = await response.json();
+
+    if (json.success && json.data) {
+      await tokenStorage.setTokens(json.data.accessToken, json.data.refreshToken);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+async function handleTokenRefresh(): Promise<boolean> {
+  if (isRefreshing && refreshPromise) {
+    return refreshPromise;
+  }
+
+  isRefreshing = true;
+  refreshPromise = reissueToken().finally(() => {
+    isRefreshing = false;
+    refreshPromise = null;
+  });
+
+  return refreshPromise;
+}
+
 async function request<T>(
   endpoint: string,
-  options: RequestOptions = {}
+  options: RequestOptions = {},
+  isRetry = false
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
@@ -64,6 +115,17 @@ async function request<T>(
 
   const response = await fetch(url, config);
   const json: ApiResponse<T> = await response.json();
+
+  // 401 에러이고 재시도가 아닌 경우 토큰 재발급 시도
+  if (response.status === 401 && !isRetry && !isPublicEndpoint(endpoint)) {
+    const refreshed = await handleTokenRefresh();
+    if (refreshed) {
+      return request<T>(endpoint, options, true);
+    }
+    // 토큰 재발급 실패 시 로그인 화면으로 이동
+    await tokenStorage.clearTokens();
+    router.replace('/(auth)/login');
+  }
 
   if (!json.success || json.error) {
     throw new ApiError(
