@@ -13,9 +13,9 @@ import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../src/constants/colors';
-import { memberApi } from '../../src/api/member';
+import { authApi } from '../../src/api/auth';
 import { ApiError } from '../../src/api/client';
-import { storage } from '../../src/utils/storage';
+import { tokenStorage } from '../../src/utils/tokenStorage';
 
 export default function LoginScreen() {
   const [loginId, setLoginId] = useState('');
@@ -80,9 +80,8 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      const response = await memberApi.login({ loginId, password });
-      await storage.setMemberId(response.id);
-      await storage.setLoginId(response.loginId);
+      const response = await authApi.login({ loginId, password });
+      await tokenStorage.setTokens(response.accessToken, response.refreshToken);
       router.replace('/(tabs)');
     } catch (error) {
       if (error instanceof ApiError) {

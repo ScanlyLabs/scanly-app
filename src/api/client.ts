@@ -1,7 +1,15 @@
 import Constants from 'expo-constants';
+import { tokenStorage } from '../utils/tokenStorage';
 
 const API_BASE_URL =
   Constants.expoConfig?.extra?.apiBaseUrl || 'http://localhost:8080';
+
+// 인증이 필요 없는 엔드포인트
+const PUBLIC_ENDPOINTS = [
+  '/api/auth/v1/login',
+  '/api/members/v1/sign-up',
+  '/api/members/v1/check-login-id',
+];
 
 interface ApiResponse<T> {
   success: boolean;
@@ -26,18 +34,32 @@ interface RequestOptions extends Omit<RequestInit, 'headers'> {
   headers?: Record<string, string>;
 }
 
+function isPublicEndpoint(endpoint: string): boolean {
+  return PUBLIC_ENDPOINTS.some((publicPath) => endpoint.startsWith(publicPath));
+}
+
 async function request<T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  // 인증이 필요한 엔드포인트에만 Authorization 헤더 추가
+  if (!isPublicEndpoint(endpoint)) {
+    const accessToken = await tokenStorage.getAccessToken();
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+  }
+
   const config: RequestInit = {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   };
 
   const response = await fetch(url, config);
