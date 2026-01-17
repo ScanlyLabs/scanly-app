@@ -5,13 +5,22 @@ interface LoginRequest {
   password: string;
 }
 
-interface LoginResponse {
+interface TokenResponse {
   accessToken: string;
   refreshToken: string;
   tokenType: string;
 }
 
+interface ReissueRequest {
+  refreshToken: string;
+}
+
 export const authApi = {
   login: (data: LoginRequest) =>
-    api.post<LoginResponse>('/api/auth/v1/login', data),
+    api.post<TokenResponse>('/api/auth/v1/login', data),
+
+  logout: () => api.post<void>('/api/auth/v1/logout'),
+
+  reissue: (data: ReissueRequest) =>
+    api.post<TokenResponse>('/api/auth/v1/reissue', data),
 };
