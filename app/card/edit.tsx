@@ -19,7 +19,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import { cardApi, SocialLinkType, UpdateCardRequest } from '../../src/api/card';
 import { ApiError } from '../../src/api/client';
-import { storage } from '../../src/utils/storage';
 
 interface SocialLinkInput {
   type: SocialLinkType;
@@ -57,15 +56,7 @@ export default function EditCardScreen() {
 
   const loadCardData = async () => {
     try {
-      const memberId = await storage.getMemberId();
-      if (!memberId) {
-        Alert.alert('오류', '로그인이 필요합니다.', [
-          { text: '확인', onPress: () => router.replace('/(auth)/login') },
-        ]);
-        return;
-      }
-
-      const cardData = await cardApi.getMe(memberId);
+      const cardData = await cardApi.getMe();
       if (cardData) {
         setName(cardData.name);
         setTitle(cardData.title);
@@ -223,25 +214,13 @@ export default function EditCardScreen() {
       return;
     }
 
-    const memberId = await storage.getMemberId();
-    if (!memberId) {
-      Alert.alert('오류', '로그인이 필요합니다.', [
-        { text: '확인', onPress: () => router.replace('/(auth)/login') },
-      ]);
-      return;
-    }
-
-    Alert.alert(
-      '명함 수정',
-      '명함을 수정하시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        { text: '수정', onPress: () => submitCard(memberId) },
-      ]
-    );
+    Alert.alert('명함 수정', '명함을 수정하시겠습니까?', [
+      { text: '취소', style: 'cancel' },
+      { text: '수정', onPress: submitCard },
+    ]);
   };
 
-  const submitCard = async (memberId: string) => {
+  const submitCard = async () => {
     setIsLoading(true);
     try {
       const requestData: UpdateCardRequest = {
@@ -258,7 +237,7 @@ export default function EditCardScreen() {
           .map((link) => ({ type: link.type, url: link.url.trim() })),
       };
 
-      await cardApi.update(memberId, requestData);
+      await cardApi.update(requestData);
 
       Alert.alert('완료', '명함이 수정되었습니다.', [
         { text: '확인', onPress: () => router.back() },

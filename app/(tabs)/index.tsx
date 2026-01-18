@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,23 +6,22 @@ import {
   TouchableOpacity,
   Share,
   Dimensions,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import QRCode from 'react-native-qrcode-svg';
 import { Colors } from '../../src/constants/colors';
-import { cardApi, ReadMeCardResponse } from '../../src/api/card';
-import { storage } from '../../src/utils/storage';
+import { cardApi } from '../../src/api/card';
 
 const { width } = Dimensions.get('window');
 const QR_SIZE = width * 0.6;
 
 interface CardInfo {
-  loginId: string;
   name: string;
   title: string;
   company: string;
+  qrImageUrl: string | null;
 }
 
 export default function HomeScreen() {
@@ -32,21 +31,13 @@ export default function HomeScreen() {
   const fetchMyCard = useCallback(async () => {
     try {
       setIsLoading(true);
-      const memberId = await storage.getMemberId();
-      const loginId = await storage.getLoginId();
-
-      if (!memberId || !loginId) {
-        setCard(null);
-        return;
-      }
-
-      const cardData = await cardApi.getMe(memberId);
+      const cardData = await cardApi.getMe();
       if (cardData) {
         setCard({
-          loginId,
           name: cardData.name,
           title: cardData.title,
           company: cardData.company,
+          qrImageUrl: cardData.qrImageUrl,
         });
       } else {
         setCard(null);
@@ -65,14 +56,12 @@ export default function HomeScreen() {
     }, [fetchMyCard])
   );
 
-  const qrValue = card ? `https://scanly.io/u/${card.loginId}` : '';
-
   const handleShare = async () => {
-    if (!card) return;
+    if (!card || !card.qrImageUrl) return;
     try {
       await Share.share({
-        message: `${card.name}의 명함입니다: ${qrValue}`,
-        url: qrValue,
+        message: `${card.name}의 명함입니다`,
+        url: card.qrImageUrl,
       });
     } catch (error) {
       console.error(error);
@@ -152,12 +141,18 @@ export default function HomeScreen() {
       <View style={styles.content}>
         <View style={styles.qrCard}>
           <View style={styles.qrContainer}>
-            <QRCode
-              value={qrValue}
-              size={QR_SIZE}
-              color={Colors.text}
-              backgroundColor={Colors.white}
-            />
+            {card.qrImageUrl ? (
+              <Image
+                source={{ uri: card.qrImageUrl }}
+                style={{ width: QR_SIZE, height: QR_SIZE }}
+                resizeMode="contain"
+              />
+            ) : (
+              <View style={[styles.qrPlaceholder, { width: QR_SIZE, height: QR_SIZE }]}>
+                <Ionicons name="qr-code-outline" size={64} color={Colors.textTertiary} />
+                <Text style={styles.qrPlaceholderText}>QR 코드 준비 중</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.userInfo}>
@@ -165,8 +160,6 @@ export default function HomeScreen() {
             <Text style={styles.userTitle}>{card.title}</Text>
             <Text style={styles.userCompany}>{card.company}</Text>
           </View>
-
-          <Text style={styles.qrUrl}>{qrValue}</Text>
         </View>
 
         <View style={styles.actions}>
@@ -301,10 +294,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.textSecondary,
   },
-  qrUrl: {
-    fontSize: 12,
+  qrPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.borderLight,
+    borderRadius: 16,
+  },
+  qrPlaceholderText: {
+    fontSize: 14,
     color: Colors.textTertiary,
-    marginTop: 16,
+    marginTop: 8,
   },
   actions: {
     flexDirection: 'row',
