@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,16 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Swipeable } from 'react-native-gesture-handler';
 import { Colors } from '../../src/constants/colors';
+
+// 수정/삭제 불가능한 기본 그룹 ID
+const SYSTEM_GROUP_IDS = ['all', 'favorites', 'recent'];
 
 // 더미 데이터
 const mockGroups = [
@@ -53,15 +58,28 @@ const mockCards = [
   },
 ];
 
+type GroupItem = (typeof mockGroups)[0];
+
 export default function CardBookScreen() {
   const [selectedGroup, setSelectedGroup] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+  const [showEditGroupModal, setShowEditGroupModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [groupNameError, setGroupNameError] = useState('');
+  const [editingGroup, setEditingGroup] = useState<GroupItem | null>(null);
+
+  const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
+
+  const isSystemGroup = (groupId: string) => SYSTEM_GROUP_IDS.includes(groupId);
+
+  const closeAllSwipeables = () => {
+    swipeableRefs.current.forEach((ref) => ref?.close());
+  };
 
   const handleOpenCreateGroupModal = () => {
+    closeAllSwipeables();
     setNewGroupName('');
     setGroupNameError('');
     setShowCreateGroupModal(true);
@@ -92,30 +110,127 @@ export default function CardBookScreen() {
     handleCloseCreateGroupModal();
   };
 
-  const renderGroupItem = ({ item }: { item: typeof mockGroups[0] }) => (
-    <TouchableOpacity
-      style={[
-        styles.groupItem,
-        selectedGroup === item.id && styles.groupItemSelected,
-      ]}
-      onPress={() => setSelectedGroup(item.id)}
-    >
-      <Ionicons
-        name={item.icon as any}
-        size={20}
-        color={selectedGroup === item.id ? Colors.primary : Colors.textSecondary}
-      />
-      <Text
+  const handleOpenEditGroupModal = (group: GroupItem) => {
+    closeAllSwipeables();
+    setEditingGroup(group);
+    setNewGroupName(group.name);
+    setGroupNameError('');
+    setShowEditGroupModal(true);
+  };
+
+  const handleCloseEditGroupModal = () => {
+    setShowEditGroupModal(false);
+    setEditingGroup(null);
+    setNewGroupName('');
+    setGroupNameError('');
+  };
+
+  const handleEditGroup = () => {
+    const trimmedName = newGroupName.trim();
+
+    if (!trimmedName) {
+      setGroupNameError('그룹명을 입력해주세요.');
+      return;
+    }
+
+    if (trimmedName.length > 20) {
+      setGroupNameError('그룹명은 20자 이내로 입력해주세요.');
+      return;
+    }
+
+    // TODO: API 호출하여 그룹 수정
+    console.log('Edit group:', editingGroup?.id, trimmedName);
+
+    handleCloseEditGroupModal();
+  };
+
+  const handleDeleteGroup = (group: GroupItem) => {
+    closeAllSwipeables();
+    Alert.alert(
+      '그룹 삭제',
+      `"${group.name}" 그룹을 삭제하시겠습니까?\n그룹 내 명함은 삭제되지 않습니다.`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: () => {
+            // TODO: API 호출하여 그룹 삭제
+            console.log('Delete group:', group.id);
+          },
+        },
+      ]
+    );
+  };
+
+  const renderRightActions = (group: GroupItem) => {
+    if (isSystemGroup(group.id)) return null;
+
+    return (
+      <View style={styles.swipeActionsContainer}>
+        <TouchableOpacity
+          style={styles.editAction}
+          onPress={() => handleOpenEditGroupModal(group)}
+        >
+          <Ionicons name="pencil" size={20} color={Colors.white} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.deleteAction}
+          onPress={() => handleDeleteGroup(group)}
+        >
+          <Ionicons name="trash" size={20} color={Colors.white} />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderGroupItem = ({ item }: { item: GroupItem }) => {
+    const groupContent = (
+      <TouchableOpacity
         style={[
-          styles.groupName,
-          selectedGroup === item.id && styles.groupNameSelected,
+          styles.groupItem,
+          selectedGroup === item.id && styles.groupItemSelected,
         ]}
+        onPress={() => setSelectedGroup(item.id)}
       >
-        {item.name}
-      </Text>
-      <Text style={styles.groupCount}>{item.count}</Text>
-    </TouchableOpacity>
-  );
+        <Ionicons
+          name={item.icon as any}
+          size={20}
+          color={selectedGroup === item.id ? Colors.primary : Colors.textSecondary}
+        />
+        <Text
+          style={[
+            styles.groupName,
+            selectedGroup === item.id && styles.groupNameSelected,
+          ]}
+        >
+          {item.name}
+        </Text>
+        <Text style={styles.groupCount}>{item.count}</Text>
+      </TouchableOpacity>
+    );
+
+    if (isSystemGroup(item.id)) {
+      return groupContent;
+    }
+
+    return (
+      <Swipeable
+        ref={(ref) => {
+          if (ref) {
+            swipeableRefs.current.set(item.id, ref);
+          } else {
+            swipeableRefs.current.delete(item.id);
+          }
+        }}
+        renderRightActions={() => renderRightActions(item)}
+        overshootRight={false}
+        rightThreshold={40}
+      >
+        {groupContent}
+      </Swipeable>
+    );
+  };
 
   const renderCardItem = ({ item }: { item: typeof mockCards[0] }) => (
     <TouchableOpacity
@@ -256,6 +371,67 @@ export default function CardBookScreen() {
                 onPress={handleCreateGroup}
               >
                 <Text style={styles.createButtonText}>만들기</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={showEditGroupModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseEditGroupModal}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <Pressable style={styles.modalBackdrop} onPress={handleCloseEditGroupModal} />
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>그룹 수정</Text>
+              <TouchableOpacity onPress={handleCloseEditGroupModal}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>그룹명</Text>
+              <TextInput
+                style={[styles.modalInput, groupNameError && styles.modalInputError]}
+                placeholder="그룹명을 입력하세요"
+                placeholderTextColor={Colors.textTertiary}
+                value={newGroupName}
+                onChangeText={(text) => {
+                  setNewGroupName(text);
+                  if (groupNameError) setGroupNameError('');
+                }}
+                maxLength={20}
+                autoFocus
+              />
+              {groupNameError ? (
+                <Text style={styles.errorText}>{groupNameError}</Text>
+              ) : (
+                <Text style={styles.charCount}>{newGroupName.length}/20</Text>
+              )}
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCloseEditGroupModal}
+              >
+                <Text style={styles.cancelButtonText}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.createButton,
+                  !newGroupName.trim() && styles.createButtonDisabled,
+                ]}
+                onPress={handleEditGroup}
+              >
+                <Text style={styles.createButtonText}>저장</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -488,5 +664,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: Colors.white,
+  },
+  swipeActionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  editAction: {
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 60,
+    height: '100%',
+  },
+  deleteAction: {
+    backgroundColor: Colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 60,
+    height: '100%',
   },
 });
