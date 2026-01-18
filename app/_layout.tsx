@@ -11,7 +11,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: '' }} />
         <Stack.Screen
           name="card/[username]"
           options={{
@@ -24,7 +24,8 @@ export default function RootLayout() {
           name="cardbook/[id]"
           options={{
             headerShown: true,
-            title: '',
+            title: '명함 상세',
+            headerBackTitle: '',
           }}
         />
         <Stack.Screen name="settings" />
