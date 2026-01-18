@@ -12,8 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
-import { cardApi, ReadMeCardResponse } from '../../src/api/card';
-import { storage } from '../../src/utils/storage';
+import { cardApi } from '../../src/api/card';
 
 interface SocialLink {
   type: string;
@@ -40,14 +39,7 @@ export default function MyCardScreen() {
   const fetchMyCard = useCallback(async () => {
     try {
       setIsLoading(true);
-      const memberId = await storage.getMemberId();
-
-      if (!memberId) {
-        setCard(null);
-        return;
-      }
-
-      const cardData = await cardApi.getMe(memberId);
+      const cardData = await cardApi.getMe();
       if (cardData) {
         setCard({
           name: cardData.name,
@@ -106,10 +98,7 @@ export default function MyCardScreen() {
 
   const deleteCard = async () => {
     try {
-      const memberId = await storage.getMemberId();
-      if (!memberId) return;
-
-      await cardApi.deleteMe(memberId);
+      await cardApi.deleteMe();
       setCard(null);
       Alert.alert('완료', '명함이 삭제되었습니다.');
     } catch (error) {

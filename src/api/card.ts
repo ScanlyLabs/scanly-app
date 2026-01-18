@@ -65,23 +65,13 @@ export interface ReadMeCardResponse {
 export type UpdateCardRequest = RegisterCardRequest;
 
 export const cardApi = {
-  register: (memberId: string, data: RegisterCardRequest) =>
-    api.post<RegisterCardResponse>('/api/cards/v1', data, {
-      'X-Member-Id': memberId,
-    }),
+  register: (data: RegisterCardRequest) =>
+    api.post<RegisterCardResponse>('/api/cards/v1', data),
 
-  getMe: (memberId: string) =>
-    api.get<ReadMeCardResponse>('/api/cards/v1/me', {
-      'X-Member-Id': memberId,
-    }),
+  getMe: () => api.get<ReadMeCardResponse>('/api/cards/v1/me'),
 
-  update: (memberId: string, data: UpdateCardRequest) =>
-    api.post<ReadMeCardResponse>('/api/cards/v1/me/update', data, {
-      'X-Member-Id': memberId,
-    }),
+  update: (data: UpdateCardRequest) =>
+    api.post<ReadMeCardResponse>('/api/cards/v1/me/update', data),
 
-  deleteMe: (memberId: string) =>
-    api.post<void>('/api/cards/v1/me/delete', undefined, {
-      'X-Member-Id': memberId,
-    }),
+  deleteMe: () => api.post<void>('/api/cards/v1/me/delete'),
 };

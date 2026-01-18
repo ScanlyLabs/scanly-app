@@ -19,7 +19,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import { cardApi, SocialLinkType, RegisterCardRequest } from '../../src/api/card';
 import { ApiError } from '../../src/api/client';
-import { storage } from '../../src/utils/storage';
 
 interface SocialLinkInput {
   type: SocialLinkType;
@@ -183,25 +182,13 @@ export default function RegisterCardScreen() {
       return;
     }
 
-    const memberId = await storage.getMemberId();
-    if (!memberId) {
-      Alert.alert('오류', '로그인이 필요합니다.', [
-        { text: '확인', onPress: () => router.replace('/(auth)/login') },
-      ]);
-      return;
-    }
-
-    Alert.alert(
-      '명함 등록',
-      '명함을 등록하시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        { text: '등록', onPress: () => submitCard(memberId) },
-      ]
-    );
+    Alert.alert('명함 등록', '명함을 등록하시겠습니까?', [
+      { text: '취소', style: 'cancel' },
+      { text: '등록', onPress: submitCard },
+    ]);
   };
 
-  const submitCard = async (memberId: string) => {
+  const submitCard = async () => {
     setIsLoading(true);
     try {
       const requestData: RegisterCardRequest = {
@@ -218,7 +205,7 @@ export default function RegisterCardScreen() {
           .map((link) => ({ type: link.type, url: link.url.trim() })),
       };
 
-      await cardApi.register(memberId, requestData);
+      await cardApi.register(requestData);
 
       Alert.alert('완료', '명함이 등록되었습니다.', [
         { text: '확인', onPress: () => router.replace('/(tabs)') },
