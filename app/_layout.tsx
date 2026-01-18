@@ -24,7 +24,8 @@ export default function RootLayout() {
           name="cardbook/[id]"
           options={{
             headerShown: true,
-            title: '',
+            title: '명함 상세',
+            headerBackTitle: '',
           }}
         />
         <Stack.Screen name="settings" />
