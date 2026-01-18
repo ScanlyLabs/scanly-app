@@ -6,6 +6,10 @@ import {
   TouchableOpacity,
   FlatList,
   TextInput,
+  Modal,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -53,6 +57,40 @@ export default function CardBookScreen() {
   const [selectedGroup, setSelectedGroup] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [groupNameError, setGroupNameError] = useState('');
+
+  const handleOpenCreateGroupModal = () => {
+    setNewGroupName('');
+    setGroupNameError('');
+    setShowCreateGroupModal(true);
+  };
+
+  const handleCloseCreateGroupModal = () => {
+    setShowCreateGroupModal(false);
+    setNewGroupName('');
+    setGroupNameError('');
+  };
+
+  const handleCreateGroup = () => {
+    const trimmedName = newGroupName.trim();
+
+    if (!trimmedName) {
+      setGroupNameError('그룹명을 입력해주세요.');
+      return;
+    }
+
+    if (trimmedName.length > 20) {
+      setGroupNameError('그룹명은 20자 이내로 입력해주세요.');
+      return;
+    }
+
+    // TODO: API 호출하여 그룹 생성
+    console.log('Create group:', trimmedName);
+
+    handleCloseCreateGroupModal();
+  };
 
   const renderGroupItem = ({ item }: { item: typeof mockGroups[0] }) => (
     <TouchableOpacity
@@ -147,7 +185,7 @@ export default function CardBookScreen() {
           horizontal={false}
           scrollEnabled={false}
         />
-        <TouchableOpacity style={styles.addGroupButton}>
+        <TouchableOpacity style={styles.addGroupButton} onPress={handleOpenCreateGroupModal}>
           <Ionicons name="add" size={20} color={Colors.primary} />
           <Text style={styles.addGroupText}>새 그룹 만들기</Text>
         </TouchableOpacity>
@@ -162,6 +200,67 @@ export default function CardBookScreen() {
         contentContainerStyle={styles.cardList}
         showsVerticalScrollIndicator={false}
       />
+
+      <Modal
+        visible={showCreateGroupModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseCreateGroupModal}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <Pressable style={styles.modalBackdrop} onPress={handleCloseCreateGroupModal} />
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>새 그룹 만들기</Text>
+              <TouchableOpacity onPress={handleCloseCreateGroupModal}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>그룹명</Text>
+              <TextInput
+                style={[styles.modalInput, groupNameError && styles.modalInputError]}
+                placeholder="그룹명을 입력하세요"
+                placeholderTextColor={Colors.textTertiary}
+                value={newGroupName}
+                onChangeText={(text) => {
+                  setNewGroupName(text);
+                  if (groupNameError) setGroupNameError('');
+                }}
+                maxLength={20}
+                autoFocus
+              />
+              {groupNameError ? (
+                <Text style={styles.errorText}>{groupNameError}</Text>
+              ) : (
+                <Text style={styles.charCount}>{newGroupName.length}/20</Text>
+              )}
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCloseCreateGroupModal}
+              >
+                <Text style={styles.cancelButtonText}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.createButton,
+                  !newGroupName.trim() && styles.createButtonDisabled,
+                ]}
+                onPress={handleCreateGroup}
+              >
+                <Text style={styles.createButtonText}>만들기</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -295,5 +394,99 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 12,
     color: Colors.primary,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '85%',
+    backgroundColor: Colors.background,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 8,
+  },
+  modalInput: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: Colors.text,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  modalInputError: {
+    borderColor: Colors.error,
+  },
+  errorText: {
+    fontSize: 12,
+    color: Colors.error,
+    marginTop: 6,
+  },
+  charCount: {
+    fontSize: 12,
+    color: Colors.textTertiary,
+    textAlign: 'right',
+    marginTop: 6,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    padding: 20,
+    paddingTop: 0,
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  createButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+  },
+  createButtonDisabled: {
+    opacity: 0.5,
+  },
+  createButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.white,
   },
 });
