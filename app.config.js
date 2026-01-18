@@ -30,6 +30,7 @@ export default {
     plugins: ['expo-router', 'expo-barcode-scanner'],
     extra: {
       apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:8080',
+      s3BaseUrl: process.env.S3_BASE_URL || '',
     },
   },
 };

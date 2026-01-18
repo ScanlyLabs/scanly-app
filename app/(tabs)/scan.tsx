@@ -10,7 +10,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { Colors } from '../../src/constants/colors';
+
+const S3_BASE_URL = Constants.expoConfig?.extra?.s3BaseUrl || '';
 
 export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -21,14 +24,17 @@ export default function ScanScreen() {
     if (scanned) return;
     setScanned(true);
 
-    // scanly.io/u/{loginId} 형식 확인
-    const match = data.match(/scanly\.io\/u\/([a-zA-Z0-9_]+)/);
-    if (match) {
-      const loginId = match[1];
-      router.push(`/card/${loginId}`);
-    } else {
-      setShowErrorModal(true);
+    // S3 URL 형식 확인: {S3_BASE_URL}/qrcodes/{loginId}.png
+    if (S3_BASE_URL) {
+      const s3Pattern = new RegExp(`${S3_BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/qrcodes/([a-zA-Z0-9_]+)\\.png`);
+      const match = data.match(s3Pattern);
+      if (match) {
+        router.push(`/card/${match[1]}`);
+        return;
+      }
     }
+
+    setShowErrorModal(true);
   };
 
   const handleCloseErrorModal = () => {
