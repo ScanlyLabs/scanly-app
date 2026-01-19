@@ -70,6 +70,9 @@ export const cardApi = {
 
   getMe: () => api.get<ReadMeCardResponse>('/api/cards/v1/me'),
 
+  getByLoginId: (loginId: string) =>
+    api.get<ReadMeCardResponse>(`/api/cards/v1/member/${loginId}`),
+
   update: (data: UpdateCardRequest) =>
     api.post<ReadMeCardResponse>('/api/cards/v1/me/update', data),
 

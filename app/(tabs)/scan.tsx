@@ -13,7 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { Colors } from '../../src/constants/colors';
 
-const S3_BASE_URL = Constants.expoConfig?.extra?.s3BaseUrl || '';
+const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl || '';
+
+console.log('[SCAN] API_BASE_URL:', API_BASE_URL);
 
 export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -24,14 +26,17 @@ export default function ScanScreen() {
     if (scanned) return;
     setScanned(true);
 
-    // S3 URL 형식 확인: {S3_BASE_URL}/qrcodes/{loginId}.png
-    if (S3_BASE_URL) {
-      const s3Pattern = new RegExp(`${S3_BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/qrcodes/([a-zA-Z0-9_]+)\\.png`);
-      const match = data.match(s3Pattern);
-      if (match) {
-        router.push(`/card/${match[1]}`);
-        return;
-      }
+    console.log('[SCAN] Scanned data:', data);
+    console.log('[SCAN] API_BASE_URL:', API_BASE_URL);
+
+    // API URL 형식 확인: {API_BASE_URL}/api/cards/v1/member/{loginId}
+    const apiPattern = new RegExp(`${API_BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/api/cards/v1/member/([a-zA-Z0-9_]+)`);
+    console.log('[SCAN] Pattern:', apiPattern.toString());
+    const match = data.match(apiPattern);
+    console.log('[SCAN] Match result:', match);
+    if (match) {
+      router.replace(`/card/${match[1]}`);
+      return;
     }
 
     setShowErrorModal(true);
