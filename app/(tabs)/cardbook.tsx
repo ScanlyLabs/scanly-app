@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Swipeable } from 'react-native-gesture-handler';
+import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { Colors } from '../../src/constants/colors';
 
 // 수정/삭제 불가능한 기본 그룹 ID
@@ -66,13 +67,19 @@ export default function CardBookScreen() {
   const [showSearch, setShowSearch] = useState(false);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [showEditGroupModal, setShowEditGroupModal] = useState(false);
+  const [showReorderModal, setShowReorderModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [groupNameError, setGroupNameError] = useState('');
   const [editingGroup, setEditingGroup] = useState<GroupItem | null>(null);
+  const [groups, setGroups] = useState(mockGroups);
 
   const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
   const isSystemGroup = (groupId: string) => SYSTEM_GROUP_IDS.includes(groupId);
+
+  // 사용자 정의 그룹만 필터링 (순서 변경 대상)
+  const userGroups = groups.filter((g) => !isSystemGroup(g.id));
+  const systemGroups = groups.filter((g) => isSystemGroup(g.id));
 
   const closeAllSwipeables = () => {
     swipeableRefs.current.forEach((ref) => ref?.close());
@@ -162,6 +169,52 @@ export default function CardBookScreen() {
       ]
     );
   };
+
+  const handleOpenReorderModal = () => {
+    closeAllSwipeables();
+    setShowReorderModal(true);
+  };
+
+  const handleCloseReorderModal = () => {
+    setShowReorderModal(false);
+  };
+
+  const handleReorderGroups = useCallback((reorderedUserGroups: GroupItem[]) => {
+    // 시스템 그룹은 그대로 유지하고, 사용자 그룹만 재정렬
+    const newGroups = [...systemGroups, ...reorderedUserGroups];
+    setGroups(newGroups);
+  }, [systemGroups]);
+
+  const handleSaveReorder = () => {
+    // TODO: API 호출하여 순서 저장
+    console.log('Save group order:', userGroups.map((g) => g.id));
+    handleCloseReorderModal();
+  };
+
+  const renderReorderItem = useCallback(
+    ({ item, drag, isActive }: RenderItemParams<GroupItem>) => {
+      return (
+        <ScaleDecorator>
+          <TouchableOpacity
+            style={[
+              styles.reorderItem,
+              isActive && styles.reorderItemActive,
+            ]}
+            onLongPress={drag}
+            delayLongPress={100}
+          >
+            <Ionicons name="menu" size={20} color={Colors.textTertiary} />
+            <View style={styles.reorderItemContent}>
+              <Ionicons name="folder-outline" size={20} color={Colors.textSecondary} />
+              <Text style={styles.reorderItemText}>{item.name}</Text>
+            </View>
+            <Text style={styles.reorderItemCount}>{item.count}</Text>
+          </TouchableOpacity>
+        </ScaleDecorator>
+      );
+    },
+    []
+  );
 
   const renderRightActions = (group: GroupItem) => {
     if (isSystemGroup(group.id)) return null;
@@ -269,9 +322,14 @@ export default function CardBookScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>내 명함첩</Text>
-        <TouchableOpacity onPress={() => setShowSearch(!showSearch)}>
-          <Ionicons name="search-outline" size={24} color={Colors.text} />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity onPress={handleOpenReorderModal} style={styles.headerButton}>
+            <Ionicons name="swap-vertical-outline" size={24} color={Colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowSearch(!showSearch)} style={styles.headerButton}>
+            <Ionicons name="search-outline" size={24} color={Colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {showSearch && (
@@ -294,7 +352,7 @@ export default function CardBookScreen() {
 
       <View style={styles.groupList}>
         <FlatList
-          data={mockGroups}
+          data={groups}
           renderItem={renderGroupItem}
           keyExtractor={(item) => item.id}
           horizontal={false}
@@ -436,6 +494,57 @@ export default function CardBookScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={showReorderModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseReorderModal}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={handleCloseReorderModal} />
+          <View style={styles.reorderModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>그룹 순서 변경</Text>
+              <TouchableOpacity onPress={handleCloseReorderModal}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.reorderHint}>길게 눌러서 드래그하여 순서를 변경하세요</Text>
+
+            <View style={styles.reorderListContainer}>
+              {userGroups.length > 0 ? (
+                <DraggableFlatList
+                  data={userGroups}
+                  onDragEnd={({ data }) => handleReorderGroups(data)}
+                  keyExtractor={(item) => item.id}
+                  renderItem={renderReorderItem}
+                />
+              ) : (
+                <View style={styles.emptyReorderList}>
+                  <Text style={styles.emptyReorderText}>순서를 변경할 그룹이 없습니다.</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCloseReorderModal}
+              >
+                <Text style={styles.cancelButtonText}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.createButton}
+                onPress={handleSaveReorder}
+              >
+                <Text style={styles.createButtonText}>저장</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -682,5 +791,71 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 60,
     height: '100%',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerButton: {
+    padding: 4,
+  },
+  reorderModalContent: {
+    width: '85%',
+    maxHeight: '70%',
+    backgroundColor: Colors.background,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  reorderHint: {
+    fontSize: 13,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  reorderListContainer: {
+    maxHeight: 300,
+    paddingHorizontal: 20,
+  },
+  reorderItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    gap: 12,
+  },
+  reorderItemActive: {
+    backgroundColor: Colors.primaryLight + '30',
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  reorderItemContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  reorderItemText: {
+    fontSize: 16,
+    color: Colors.text,
+  },
+  reorderItemCount: {
+    fontSize: 14,
+    color: Colors.textTertiary,
+  },
+  emptyReorderList: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyReorderText: {
+    fontSize: 14,
+    color: Colors.textTertiary,
   },
 });
