@@ -125,6 +125,7 @@ async function request<T>(
     // 토큰 재발급 실패 시 로그인 화면으로 이동
     await tokenStorage.clearTokens();
     router.replace('/(auth)/login');
+    throw new ApiError('UNAUTHORIZED', '인증이 만료되었습니다. 다시 로그인해주세요.');
   }
 
   if (!json.success || json.error) {
