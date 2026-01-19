@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,27 +7,38 @@ import {
   ScrollView,
   Modal,
   Alert,
+  ActivityIndicator,
+  SafeAreaView,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
-
-// 더미 데이터
-const mockCard = {
-  name: '김철수',
-  title: 'CEO',
-  company: 'XYZ Inc',
-  phone: '010-9876-5432',
-  email: 'kim@xyz.com',
-  bio: '스타트업 창업자, 10년차 기업가',
-  socialLinks: [
-    { type: 'LINKEDIN', url: 'linkedin.com/in/kim' },
-  ],
-};
+import { cardApi, ReadMeCardResponse } from '../../src/api/card';
 
 export default function CardDetailScreen() {
   const { loginId } = useLocalSearchParams<{ loginId: string }>();
   const [showExchangeModal, setShowExchangeModal] = useState(false);
+  const [card, setCard] = useState<ReadMeCardResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCard = async () => {
+      if (!loginId) return;
+
+      try {
+        setLoading(true);
+        const response = await cardApi.getByLoginId(loginId);
+        setCard(response);
+      } catch (err) {
+        setError('명함을 불러올 수 없습니다.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCard();
+  }, [loginId]);
 
   const handleSave = () => {
     // TODO: 명함 저장 API 호출
@@ -58,8 +69,47 @@ export default function CardDetailScreen() {
     }
   };
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.headerBackButton} onPress={() => router.replace('/(tabs)/scan')}>
+            <Ionicons name="chevron-back" size={24} color={Colors.text} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !card) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.headerBackButton} onPress={() => router.replace('/(tabs)/scan')}>
+            <Ionicons name="chevron-back" size={24} color={Colors.text} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color={Colors.error} />
+          <Text style={styles.errorText}>{error || '명함을 찾을 수 없습니다.'}</Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>돌아가기</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.headerBackButton} onPress={() => router.replace('/(tabs)/scan')}>
+          <Ionicons name="chevron-back" size={24} color={Colors.text} />
+        </TouchableOpacity>
+      </View>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -67,31 +117,31 @@ export default function CardDetailScreen() {
         <View style={styles.profileSection}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
-              {mockCard.name.charAt(0)}
+              {card.name.charAt(0)}
             </Text>
           </View>
 
-          <Text style={styles.name}>{mockCard.name}</Text>
-          <Text style={styles.title}>{mockCard.title}</Text>
-          <Text style={styles.company}>{mockCard.company}</Text>
+          <Text style={styles.name}>{card.name}</Text>
+          <Text style={styles.title}>{card.title}</Text>
+          <Text style={styles.company}>{card.company}</Text>
         </View>
 
         <View style={styles.contactSection}>
-          {mockCard.phone && (
+          {card.phone && (
             <TouchableOpacity style={styles.contactRow}>
               <Ionicons name="call-outline" size={24} color={Colors.primary} />
-              <Text style={styles.contactText}>{mockCard.phone}</Text>
+              <Text style={styles.contactText}>{card.phone}</Text>
             </TouchableOpacity>
           )}
 
-          {mockCard.email && (
+          {card.email && (
             <TouchableOpacity style={styles.contactRow}>
               <Ionicons name="mail-outline" size={24} color={Colors.primary} />
-              <Text style={styles.contactText}>{mockCard.email}</Text>
+              <Text style={styles.contactText}>{card.email}</Text>
             </TouchableOpacity>
           )}
 
-          {mockCard.socialLinks.map((link, index) => (
+          {card.socialLinks?.map((link, index) => (
             <TouchableOpacity key={index} style={styles.contactRow}>
               <Ionicons
                 name={getSocialIcon(link.type) as any}
@@ -103,9 +153,9 @@ export default function CardDetailScreen() {
           ))}
         </View>
 
-        {mockCard.bio && (
+        {card.bio && (
           <View style={styles.bioSection}>
-            <Text style={styles.bioText}>{mockCard.bio}</Text>
+            <Text style={styles.bioText}>{card.bio}</Text>
           </View>
         )}
       </ScrollView>
@@ -146,7 +196,7 @@ export default function CardDetailScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -154,6 +204,46 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  headerBackButton: {
+    padding: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+    paddingHorizontal: 40,
+  },
+  errorText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  backButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 24,
+  },
+  backButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '600',
   },
   content: {
     paddingHorizontal: 20,
