@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -66,13 +67,19 @@ export default function CardBookScreen() {
   const [showSearch, setShowSearch] = useState(false);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [showEditGroupModal, setShowEditGroupModal] = useState(false);
+  const [showReorderModal, setShowReorderModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [groupNameError, setGroupNameError] = useState('');
   const [editingGroup, setEditingGroup] = useState<GroupItem | null>(null);
+  const [groups, setGroups] = useState(mockGroups);
 
   const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
   const isSystemGroup = (groupId: string) => SYSTEM_GROUP_IDS.includes(groupId);
+
+  // 사용자 정의 그룹만 필터링 (순서 변경 대상)
+  const userGroups = groups.filter((g) => !isSystemGroup(g.id));
+  const systemGroups = groups.filter((g) => isSystemGroup(g.id));
 
   const closeAllSwipeables = () => {
     swipeableRefs.current.forEach((ref) => ref?.close());
@@ -161,6 +168,35 @@ export default function CardBookScreen() {
         },
       ]
     );
+  };
+
+  const handleOpenReorderModal = () => {
+    closeAllSwipeables();
+    setShowReorderModal(true);
+  };
+
+  const handleCloseReorderModal = () => {
+    setShowReorderModal(false);
+  };
+
+  const handleMoveGroup = (index: number, direction: 'up' | 'down') => {
+    const newUserGroups = [...userGroups];
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+
+    if (newIndex < 0 || newIndex >= newUserGroups.length) return;
+
+    // 스왑
+    [newUserGroups[index], newUserGroups[newIndex]] = [newUserGroups[newIndex], newUserGroups[index]];
+
+    // 시스템 그룹과 합치기
+    const newGroups = [...systemGroups, ...newUserGroups];
+    setGroups(newGroups);
+  };
+
+  const handleSaveReorder = () => {
+    // TODO: API 호출하여 순서 저장
+    console.log('Save group order:', userGroups.map((g) => g.id));
+    handleCloseReorderModal();
   };
 
   const renderRightActions = (group: GroupItem) => {
@@ -269,9 +305,14 @@ export default function CardBookScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>내 명함첩</Text>
-        <TouchableOpacity onPress={() => setShowSearch(!showSearch)}>
-          <Ionicons name="search-outline" size={24} color={Colors.text} />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity onPress={handleOpenReorderModal} style={styles.headerButton}>
+            <Ionicons name="swap-vertical-outline" size={24} color={Colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowSearch(!showSearch)} style={styles.headerButton}>
+            <Ionicons name="search-outline" size={24} color={Colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {showSearch && (
@@ -294,7 +335,7 @@ export default function CardBookScreen() {
 
       <View style={styles.groupList}>
         <FlatList
-          data={mockGroups}
+          data={groups}
           renderItem={renderGroupItem}
           keyExtractor={(item) => item.id}
           horizontal={false}
@@ -436,6 +477,76 @@ export default function CardBookScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={showReorderModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseReorderModal}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={handleCloseReorderModal} />
+          <View style={styles.reorderModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>그룹 순서 변경</Text>
+              <TouchableOpacity onPress={handleCloseReorderModal}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.reorderHint}>화살표 버튼으로 순서를 변경하세요</Text>
+
+            <ScrollView style={styles.reorderListContainer}>
+              {userGroups.length > 0 ? (
+                userGroups.map((group, index) => (
+                  <View key={group.id} style={styles.reorderItem}>
+                    <View style={styles.reorderItemContent}>
+                      <Ionicons name="folder-outline" size={20} color={Colors.textSecondary} />
+                      <Text style={styles.reorderItemText}>{group.name}</Text>
+                      <Text style={styles.reorderItemCount}>{group.count}</Text>
+                    </View>
+                    <View style={styles.reorderButtons}>
+                      <TouchableOpacity
+                        style={[styles.reorderButton, index === 0 && styles.reorderButtonDisabled]}
+                        onPress={() => handleMoveGroup(index, 'up')}
+                        disabled={index === 0}
+                      >
+                        <Ionicons name="chevron-up" size={20} color={index === 0 ? Colors.textTertiary : Colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.reorderButton, index === userGroups.length - 1 && styles.reorderButtonDisabled]}
+                        onPress={() => handleMoveGroup(index, 'down')}
+                        disabled={index === userGroups.length - 1}
+                      >
+                        <Ionicons name="chevron-down" size={20} color={index === userGroups.length - 1 ? Colors.textTertiary : Colors.primary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.emptyReorderList}>
+                  <Text style={styles.emptyReorderText}>순서를 변경할 그룹이 없습니다.</Text>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCloseReorderModal}
+              >
+                <Text style={styles.cancelButtonText}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.createButton}
+                onPress={handleSaveReorder}
+              >
+                <Text style={styles.createButtonText}>저장</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -682,5 +793,77 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 60,
     height: '100%',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerButton: {
+    padding: 4,
+  },
+  reorderModalContent: {
+    width: '85%',
+    maxHeight: '70%',
+    backgroundColor: Colors.background,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  reorderHint: {
+    fontSize: 13,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  reorderListContainer: {
+    maxHeight: 300,
+    paddingHorizontal: 20,
+  },
+  reorderItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surface,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  reorderItemContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  reorderItemText: {
+    flex: 1,
+    fontSize: 16,
+    color: Colors.text,
+  },
+  reorderItemCount: {
+    fontSize: 14,
+    color: Colors.textTertiary,
+    marginRight: 8,
+  },
+  reorderButtons: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  reorderButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.background,
+  },
+  reorderButtonDisabled: {
+    opacity: 0.5,
+  },
+  emptyReorderList: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyReorderText: {
+    fontSize: 14,
+    color: Colors.textTertiary,
   },
 });
