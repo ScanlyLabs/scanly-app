@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Swipeable } from 'react-native-gesture-handler';
-import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { Colors } from '../../src/constants/colors';
 
 // 수정/삭제 불가능한 기본 그룹 ID
@@ -179,42 +179,25 @@ export default function CardBookScreen() {
     setShowReorderModal(false);
   };
 
-  const handleReorderGroups = useCallback((reorderedUserGroups: GroupItem[]) => {
-    // 시스템 그룹은 그대로 유지하고, 사용자 그룹만 재정렬
-    const newGroups = [...systemGroups, ...reorderedUserGroups];
+  const handleMoveGroup = (index: number, direction: 'up' | 'down') => {
+    const newUserGroups = [...userGroups];
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+
+    if (newIndex < 0 || newIndex >= newUserGroups.length) return;
+
+    // 스왑
+    [newUserGroups[index], newUserGroups[newIndex]] = [newUserGroups[newIndex], newUserGroups[index]];
+
+    // 시스템 그룹과 합치기
+    const newGroups = [...systemGroups, ...newUserGroups];
     setGroups(newGroups);
-  }, [systemGroups]);
+  };
 
   const handleSaveReorder = () => {
     // TODO: API 호출하여 순서 저장
     console.log('Save group order:', userGroups.map((g) => g.id));
     handleCloseReorderModal();
   };
-
-  const renderReorderItem = useCallback(
-    ({ item, drag, isActive }: RenderItemParams<GroupItem>) => {
-      return (
-        <ScaleDecorator>
-          <TouchableOpacity
-            style={[
-              styles.reorderItem,
-              isActive && styles.reorderItemActive,
-            ]}
-            onLongPress={drag}
-            delayLongPress={100}
-          >
-            <Ionicons name="menu" size={20} color={Colors.textTertiary} />
-            <View style={styles.reorderItemContent}>
-              <Ionicons name="folder-outline" size={20} color={Colors.textSecondary} />
-              <Text style={styles.reorderItemText}>{item.name}</Text>
-            </View>
-            <Text style={styles.reorderItemCount}>{item.count}</Text>
-          </TouchableOpacity>
-        </ScaleDecorator>
-      );
-    },
-    []
-  );
 
   const renderRightActions = (group: GroupItem) => {
     if (isSystemGroup(group.id)) return null;
@@ -512,22 +495,41 @@ export default function CardBookScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.reorderHint}>길게 눌러서 드래그하여 순서를 변경하세요</Text>
+            <Text style={styles.reorderHint}>화살표 버튼으로 순서를 변경하세요</Text>
 
-            <View style={styles.reorderListContainer}>
+            <ScrollView style={styles.reorderListContainer}>
               {userGroups.length > 0 ? (
-                <DraggableFlatList
-                  data={userGroups}
-                  onDragEnd={({ data }) => handleReorderGroups(data)}
-                  keyExtractor={(item) => item.id}
-                  renderItem={renderReorderItem}
-                />
+                userGroups.map((group, index) => (
+                  <View key={group.id} style={styles.reorderItem}>
+                    <View style={styles.reorderItemContent}>
+                      <Ionicons name="folder-outline" size={20} color={Colors.textSecondary} />
+                      <Text style={styles.reorderItemText}>{group.name}</Text>
+                      <Text style={styles.reorderItemCount}>{group.count}</Text>
+                    </View>
+                    <View style={styles.reorderButtons}>
+                      <TouchableOpacity
+                        style={[styles.reorderButton, index === 0 && styles.reorderButtonDisabled]}
+                        onPress={() => handleMoveGroup(index, 'up')}
+                        disabled={index === 0}
+                      >
+                        <Ionicons name="chevron-up" size={20} color={index === 0 ? Colors.textTertiary : Colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.reorderButton, index === userGroups.length - 1 && styles.reorderButtonDisabled]}
+                        onPress={() => handleMoveGroup(index, 'down')}
+                        disabled={index === userGroups.length - 1}
+                      >
+                        <Ionicons name="chevron-down" size={20} color={index === userGroups.length - 1 ? Colors.textTertiary : Colors.primary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
               ) : (
                 <View style={styles.emptyReorderList}>
                   <Text style={styles.emptyReorderText}>순서를 변경할 그룹이 없습니다.</Text>
                 </View>
               )}
-            </View>
+            </ScrollView>
 
             <View style={styles.modalFooter}>
               <TouchableOpacity
@@ -821,20 +823,12 @@ const styles = StyleSheet.create({
   reorderItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: Colors.surface,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
     marginBottom: 8,
-    gap: 12,
-  },
-  reorderItemActive: {
-    backgroundColor: Colors.primaryLight + '30',
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
   },
   reorderItemContent: {
     flex: 1,
@@ -843,12 +837,26 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   reorderItemText: {
+    flex: 1,
     fontSize: 16,
     color: Colors.text,
   },
   reorderItemCount: {
     fontSize: 14,
     color: Colors.textTertiary,
+    marginRight: 8,
+  },
+  reorderButtons: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  reorderButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.background,
+  },
+  reorderButtonDisabled: {
+    opacity: 0.5,
   },
   emptyReorderList: {
     paddingVertical: 40,
