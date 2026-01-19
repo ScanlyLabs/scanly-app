@@ -15,8 +15,6 @@ import { Colors } from '../../src/constants/colors';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl || '';
 
-console.log('[SCAN] API_BASE_URL:', API_BASE_URL);
-
 export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
@@ -26,14 +24,9 @@ export default function ScanScreen() {
     if (scanned) return;
     setScanned(true);
 
-    console.log('[SCAN] Scanned data:', data);
-    console.log('[SCAN] API_BASE_URL:', API_BASE_URL);
-
     // API URL 형식 확인: {API_BASE_URL}/api/cards/v1/member/{loginId}
     const apiPattern = new RegExp(`${API_BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/api/cards/v1/member/([a-zA-Z0-9_]+)`);
-    console.log('[SCAN] Pattern:', apiPattern.toString());
     const match = data.match(apiPattern);
-    console.log('[SCAN] Match result:', match);
     if (match) {
       router.replace(`/card/${match[1]}`);
       return;
