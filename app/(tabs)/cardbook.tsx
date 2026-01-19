@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,24 +12,23 @@ import {
   Platform,
   Alert,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Colors } from '../../src/constants/colors';
+import { groupApi, GroupResponse } from '../../src/api/group';
 
 // 수정/삭제 불가능한 기본 그룹 ID
 const SYSTEM_GROUP_IDS = ['all', 'favorites', 'recent'];
 
-// 더미 데이터
-const mockGroups = [
-  { id: 'all', name: '전체', count: 47, icon: 'folder-outline' },
-  { id: 'favorites', name: '즐겨찾기', count: 12, icon: 'star-outline' },
-  { id: 'recent', name: '최근', count: 5, icon: 'time-outline' },
-  { id: '1', name: '거래처', count: 15, icon: 'folder-outline' },
-  { id: '2', name: '스타트업', count: 8, icon: 'folder-outline' },
-  { id: '3', name: '2024 컨퍼런스', count: 7, icon: 'folder-outline' },
+// 시스템 그룹 (고정)
+const SYSTEM_GROUPS: GroupItem[] = [
+  { id: 'all', name: '전체', count: 47, icon: 'folder-outline', sortOrder: -3 },
+  { id: 'favorites', name: '즐겨찾기', count: 12, icon: 'star-outline', sortOrder: -2 },
+  { id: 'recent', name: '최근', count: 5, icon: 'time-outline', sortOrder: -1 },
 ];
 
 const mockCards = [
@@ -59,7 +58,22 @@ const mockCards = [
   },
 ];
 
-type GroupItem = (typeof mockGroups)[0];
+interface GroupItem {
+  id: string;
+  name: string;
+  count: number;
+  icon: string;
+  sortOrder: number;
+}
+
+// API 응답을 GroupItem으로 변환
+const toGroupItem = (response: GroupResponse): GroupItem => ({
+  id: response.id,
+  name: response.name,
+  count: Math.floor(Math.random() * 20), // TODO: API에서 명함 개수 제공 시 교체
+  icon: 'folder-outline',
+  sortOrder: response.sortOrder,
+});
 
 export default function CardBookScreen() {
   const [selectedGroup, setSelectedGroup] = useState('all');
@@ -71,15 +85,32 @@ export default function CardBookScreen() {
   const [newGroupName, setNewGroupName] = useState('');
   const [groupNameError, setGroupNameError] = useState('');
   const [editingGroup, setEditingGroup] = useState<GroupItem | null>(null);
-  const [groups, setGroups] = useState(mockGroups);
+  const [userGroups, setUserGroups] = useState<GroupItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
   const isSystemGroup = (groupId: string) => SYSTEM_GROUP_IDS.includes(groupId);
 
-  // 사용자 정의 그룹만 필터링 (순서 변경 대상)
-  const userGroups = groups.filter((g) => !isSystemGroup(g.id));
-  const systemGroups = groups.filter((g) => isSystemGroup(g.id));
+  // 시스템 그룹 + 사용자 그룹 합치기
+  const groups = [...SYSTEM_GROUPS, ...userGroups.sort((a, b) => a.sortOrder - b.sortOrder)];
+
+  // 그룹 목록 조회
+  const fetchGroups = async () => {
+    try {
+      setLoading(true);
+      const response = await groupApi.getAll();
+      setUserGroups(response.map(toGroupItem));
+    } catch (error) {
+      console.error('Failed to fetch groups:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGroups();
+  }, []);
 
   const closeAllSwipeables = () => {
     swipeableRefs.current.forEach((ref) => ref?.close());
@@ -98,7 +129,7 @@ export default function CardBookScreen() {
     setGroupNameError('');
   };
 
-  const handleCreateGroup = () => {
+  const handleCreateGroup = async () => {
     const trimmedName = newGroupName.trim();
 
     if (!trimmedName) {
@@ -111,10 +142,14 @@ export default function CardBookScreen() {
       return;
     }
 
-    // TODO: API 호출하여 그룹 생성
-    console.log('Create group:', trimmedName);
-
-    handleCloseCreateGroupModal();
+    try {
+      await groupApi.create({ name: trimmedName });
+      await fetchGroups();
+      handleCloseCreateGroupModal();
+    } catch (error) {
+      console.error('Failed to create group:', error);
+      setGroupNameError('그룹 생성에 실패했습니다.');
+    }
   };
 
   const handleOpenEditGroupModal = (group: GroupItem) => {
@@ -132,7 +167,7 @@ export default function CardBookScreen() {
     setGroupNameError('');
   };
 
-  const handleEditGroup = () => {
+  const handleEditGroup = async () => {
     const trimmedName = newGroupName.trim();
 
     if (!trimmedName) {
@@ -145,10 +180,16 @@ export default function CardBookScreen() {
       return;
     }
 
-    // TODO: API 호출하여 그룹 수정
-    console.log('Edit group:', editingGroup?.id, trimmedName);
+    if (!editingGroup) return;
 
-    handleCloseEditGroupModal();
+    try {
+      await groupApi.rename(editingGroup.id, { name: trimmedName });
+      await fetchGroups();
+      handleCloseEditGroupModal();
+    } catch (error) {
+      console.error('Failed to rename group:', error);
+      setGroupNameError('그룹 수정에 실패했습니다.');
+    }
   };
 
   const handleDeleteGroup = (group: GroupItem) => {
@@ -161,9 +202,14 @@ export default function CardBookScreen() {
         {
           text: '삭제',
           style: 'destructive',
-          onPress: () => {
-            // TODO: API 호출하여 그룹 삭제
-            console.log('Delete group:', group.id);
+          onPress: async () => {
+            try {
+              await groupApi.delete(group.id);
+              await fetchGroups();
+            } catch (error) {
+              console.error('Failed to delete group:', error);
+              Alert.alert('오류', '그룹 삭제에 실패했습니다.');
+            }
           },
         },
       ]
@@ -180,23 +226,38 @@ export default function CardBookScreen() {
   };
 
   const handleMoveGroup = (index: number, direction: 'up' | 'down') => {
-    const newUserGroups = [...userGroups];
+    const sortedUserGroups = [...userGroups].sort((a, b) => a.sortOrder - b.sortOrder);
     const newIndex = direction === 'up' ? index - 1 : index + 1;
 
-    if (newIndex < 0 || newIndex >= newUserGroups.length) return;
+    if (newIndex < 0 || newIndex >= sortedUserGroups.length) return;
 
     // 스왑
-    [newUserGroups[index], newUserGroups[newIndex]] = [newUserGroups[newIndex], newUserGroups[index]];
+    [sortedUserGroups[index], sortedUserGroups[newIndex]] = [sortedUserGroups[newIndex], sortedUserGroups[index]];
 
-    // 시스템 그룹과 합치기
-    const newGroups = [...systemGroups, ...newUserGroups];
-    setGroups(newGroups);
+    // sortOrder 재할당
+    const reorderedGroups = sortedUserGroups.map((group, idx) => ({
+      ...group,
+      sortOrder: idx,
+    }));
+
+    setUserGroups(reorderedGroups);
   };
 
-  const handleSaveReorder = () => {
-    // TODO: API 호출하여 순서 저장
-    console.log('Save group order:', userGroups.map((g) => g.id));
-    handleCloseReorderModal();
+  const handleSaveReorder = async () => {
+    try {
+      const sortedUserGroups = [...userGroups].sort((a, b) => a.sortOrder - b.sortOrder);
+      await groupApi.reorder({
+        groups: sortedUserGroups.map((g, idx) => ({
+          id: g.id,
+          sortOrder: idx,
+        })),
+      });
+      await fetchGroups();
+      handleCloseReorderModal();
+    } catch (error) {
+      console.error('Failed to reorder groups:', error);
+      Alert.alert('오류', '그룹 순서 변경에 실패했습니다.');
+    }
   };
 
   const renderRightActions = (group: GroupItem) => {
@@ -499,7 +560,7 @@ export default function CardBookScreen() {
 
             <ScrollView style={styles.reorderListContainer}>
               {userGroups.length > 0 ? (
-                userGroups.map((group, index) => (
+                [...userGroups].sort((a, b) => a.sortOrder - b.sortOrder).map((group, index) => (
                   <View key={group.id} style={styles.reorderItem}>
                     <View style={styles.reorderItemContent}>
                       <Ionicons name="folder-outline" size={20} color={Colors.textSecondary} />
