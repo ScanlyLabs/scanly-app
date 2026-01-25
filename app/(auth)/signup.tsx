@@ -19,6 +19,7 @@ import { ApiError } from '../../src/api/client';
 
 export default function SignupScreen() {
   const [loginId, setLoginId] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [email, setEmail] = useState('');
@@ -26,9 +27,20 @@ export default function SignupScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{
     loginId?: string;
+    name?: string;
     password?: string;
     confirmPassword?: string;
   }>({});
+
+  const validateName = (value: string): string | undefined => {
+    if (value.length < 2 || value.length > 20) {
+      return '이름은 2-20자여야 합니다.';
+    }
+    if (!/^[가-힣a-zA-Z]+$/.test(value)) {
+      return '한글 또는 영문만 입력 가능합니다.';
+    }
+    return undefined;
+  };
 
   const validateLoginId = (value: string): string | undefined => {
     if (value.length < 3 || value.length > 20) {
@@ -48,6 +60,12 @@ export default function SignupScreen() {
       return '영문과 숫자를 포함해야 합니다.';
     }
     return undefined;
+  };
+
+  const handleNameChange = (value: string) => {
+    setName(value);
+    const error = validateName(value);
+    setErrors((prev) => ({ ...prev, name: error }));
   };
 
   const checkLoginId = (value: string) => {
@@ -79,12 +97,14 @@ export default function SignupScreen() {
 
   const handleSignup = async () => {
     // Validation
+    const nameError = validateName(name);
     const loginIdError = validateLoginId(loginId);
     const passwordError = validatePassword(password);
     const confirmPasswordError = password !== confirmPassword ? '비밀번호가 일치하지 않습니다.' : undefined;
 
-    if (loginIdError || passwordError || confirmPasswordError) {
+    if (nameError || loginIdError || passwordError || confirmPasswordError) {
       setErrors({
+        name: nameError,
         loginId: loginIdError,
         password: passwordError,
         confirmPassword: confirmPasswordError,
@@ -97,6 +117,7 @@ export default function SignupScreen() {
       await memberApi.signUp({
         loginId,
         password,
+        name,
         email: email || undefined,
       });
 
@@ -168,6 +189,21 @@ export default function SignupScreen() {
                 <Text style={styles.invalidText}>
                   ✗ {errors.loginId}
                 </Text>
+              )}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>이름</Text>
+              <TextInput
+                style={[styles.input, errors.name && styles.inputError]}
+                placeholder="홍길동"
+                placeholderTextColor={Colors.textTertiary}
+                value={name}
+                onChangeText={handleNameChange}
+                editable={!isLoading}
+              />
+              {errors.name && (
+                <Text style={styles.invalidText}>✗ {errors.name}</Text>
               )}
             </View>
 

@@ -26,7 +26,6 @@ interface SocialLinkInput {
 }
 
 interface FormErrors {
-  name?: string;
   title?: string;
   company?: string;
   phone?: string;
@@ -37,7 +36,6 @@ interface FormErrors {
 }
 
 export default function RegisterCardScreen() {
-  const [name, setName] = useState('');
   const [title, setTitle] = useState('');
   const [company, setCompany] = useState('');
   const [phone, setPhone] = useState('');
@@ -50,16 +48,6 @@ export default function RegisterCardScreen() {
   const [errors, setErrors] = useState<FormErrors>({});
 
   // 유효성 검사 함수들
-  const validateName = (value: string): string | undefined => {
-    if (!value.trim()) {
-      return '이름은 필수입니다.';
-    }
-    if (value.length < 2 || value.length > 30) {
-      return '이름은 2-30자여야 합니다.';
-    }
-    return undefined;
-  };
-
   const validateTitle = (value: string): string | undefined => {
     if (!value.trim()) {
       return '직함은 필수입니다.';
@@ -134,7 +122,6 @@ export default function RegisterCardScreen() {
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {
-      name: validateName(name),
       title: validateTitle(title),
       company: validateCompany(company),
       phone: validatePhone(phone),
@@ -192,7 +179,6 @@ export default function RegisterCardScreen() {
     setIsLoading(true);
     try {
       const requestData: RegisterCardRequest = {
-        name: name.trim(),
         title: title.trim(),
         company: company.trim(),
         phone: phone.replace(/\D/g, ''),
@@ -275,25 +261,6 @@ export default function RegisterCardScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>기본 정보</Text>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>이름 *</Text>
-              <TextInput
-                style={[styles.input, errors.name && styles.inputError]}
-                placeholder="이름을 입력하세요 (2-30자)"
-                placeholderTextColor={Colors.textTertiary}
-                value={name}
-                onChangeText={(value) => {
-                  setName(value);
-                  clearFieldError('name');
-                }}
-                maxLength={30}
-                editable={!isLoading}
-              />
-              {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
-            </View>
-
             <View style={styles.inputGroup}>
               <Text style={styles.label}>직책 *</Text>
               <TextInput

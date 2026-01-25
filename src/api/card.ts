@@ -14,7 +14,6 @@ interface SocialLinkRequest {
 }
 
 export interface RegisterCardRequest {
-  name: string;
   title: string;
   company: string;
   phone: string;
