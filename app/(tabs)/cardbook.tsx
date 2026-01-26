@@ -19,44 +19,15 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Colors } from '../../src/constants/colors';
-import { groupApi, GroupResponse } from '../../src/api/group';
+import { groupApi, GroupListResponse, GroupWithCountResponse, DefaultGroupResponse } from '../../src/api/group';
+import { cardBookApi, CardBookResponse } from '../../src/api/cardbook';
 
-// 수정/삭제 불가능한 기본 그룹 ID
-const SYSTEM_GROUP_IDS = ['all', 'favorites', 'recent'];
-
-// 시스템 그룹 (고정)
-const SYSTEM_GROUPS: GroupItem[] = [
-  { id: 'all', name: '전체', count: 47, icon: 'folder-outline', sortOrder: -3 },
-  { id: 'favorites', name: '즐겨찾기', count: 12, icon: 'star-outline', sortOrder: -2 },
-  { id: 'recent', name: '최근', count: 5, icon: 'time-outline', sortOrder: -1 },
-];
-
-const mockCards = [
-  {
-    id: '1',
-    name: '김철수',
-    title: 'CEO',
-    company: 'XYZ Inc',
-    tags: ['파트너', 'VIP'],
-    profileImage: null,
-  },
-  {
-    id: '2',
-    name: '이영희',
-    title: 'CTO',
-    company: 'ABC Company',
-    tags: ['잠재고객'],
-    profileImage: null,
-  },
-  {
-    id: '3',
-    name: '박민수',
-    title: 'Designer',
-    company: 'Design Studio',
-    tags: ['디자인'],
-    profileImage: null,
-  },
-];
+// 기본 그룹 아이콘 매핑
+const DEFAULT_GROUP_ICONS: Record<string, string> = {
+  all: 'folder-outline',
+  favorites: 'star-outline',
+  recent: 'time-outline',
+};
 
 interface GroupItem {
   id: string;
@@ -64,16 +35,45 @@ interface GroupItem {
   count: number;
   icon: string;
   sortOrder: number;
+  isDefault: boolean;
 }
 
-// API 응답을 GroupItem으로 변환
-const toGroupItem = (response: GroupResponse): GroupItem => ({
+interface ProfileSnapshot {
+  name: string;
+  title: string;
+  company: string;
+  profileImageUrl: string | null;
+}
+
+// 기본 그룹을 GroupItem으로 변환
+const toDefaultGroupItem = (response: DefaultGroupResponse, index: number): GroupItem => ({
   id: response.id,
   name: response.name,
-  count: Math.floor(Math.random() * 20), // TODO: API에서 명함 개수 제공 시 교체
+  count: response.cardBookCount,
+  icon: DEFAULT_GROUP_ICONS[response.id] || 'folder-outline',
+  sortOrder: -100 + index,
+  isDefault: true,
+});
+
+// 커스텀 그룹을 GroupItem으로 변환
+const toCustomGroupItem = (response: GroupWithCountResponse): GroupItem => ({
+  id: response.id,
+  name: response.name,
+  count: response.cardBookCount,
   icon: 'folder-outline',
   sortOrder: response.sortOrder,
+  isDefault: false,
 });
+
+// profileSnapshot JSON 파싱
+const parseProfileSnapshot = (snapshot: string | null): ProfileSnapshot | null => {
+  if (!snapshot) return null;
+  try {
+    return JSON.parse(snapshot);
+  } catch {
+    return null;
+  }
+};
 
 export default function CardBookScreen() {
   const [selectedGroup, setSelectedGroup] = useState('all');
@@ -85,22 +85,26 @@ export default function CardBookScreen() {
   const [newGroupName, setNewGroupName] = useState('');
   const [groupNameError, setGroupNameError] = useState('');
   const [editingGroup, setEditingGroup] = useState<GroupItem | null>(null);
-  const [userGroups, setUserGroups] = useState<GroupItem[]>([]);
+  const [defaultGroups, setDefaultGroups] = useState<GroupItem[]>([]);
+  const [customGroups, setCustomGroups] = useState<GroupItem[]>([]);
+  const [cardBooks, setCardBooks] = useState<CardBookResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cardBooksLoading, setCardBooksLoading] = useState(false);
 
   const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
-  const isSystemGroup = (groupId: string) => SYSTEM_GROUP_IDS.includes(groupId);
+  const isDefaultGroup = (groupId: string) => defaultGroups.some(g => g.id === groupId);
 
-  // 시스템 그룹 + 사용자 그룹 합치기
-  const groups = [...SYSTEM_GROUPS, ...userGroups.sort((a, b) => a.sortOrder - b.sortOrder)];
+  // 기본 그룹 + 커스텀 그룹 합치기
+  const groups = [...defaultGroups, ...customGroups.sort((a, b) => a.sortOrder - b.sortOrder)];
 
   // 그룹 목록 조회
   const fetchGroups = async () => {
     try {
       setLoading(true);
       const response = await groupApi.getAll();
-      setUserGroups(response.map(toGroupItem));
+      setDefaultGroups(response.defaultGroups.map(toDefaultGroupItem));
+      setCustomGroups(response.customGroups.map(toCustomGroupItem));
     } catch (error) {
       console.error('Failed to fetch groups:', error);
     } finally {
@@ -108,9 +112,35 @@ export default function CardBookScreen() {
     }
   };
 
+  // 명함첩 목록 조회
+  const fetchCardBooks = async (groupId?: string) => {
+    try {
+      setCardBooksLoading(true);
+      const params: { groupId?: string } = {};
+
+      // 'all'이 아닌 경우에만 groupId 전달
+      if (groupId && groupId !== 'all') {
+        params.groupId = groupId;
+      }
+
+      const response = await cardBookApi.getAll(params);
+      setCardBooks(response.content);
+    } catch (error) {
+      console.error('Failed to fetch cardbooks:', error);
+    } finally {
+      setCardBooksLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchGroups();
+    fetchCardBooks();
   }, []);
+
+  // 그룹 선택 시 명함첩 다시 조회
+  useEffect(() => {
+    fetchCardBooks(selectedGroup);
+  }, [selectedGroup]);
 
   const closeAllSwipeables = () => {
     swipeableRefs.current.forEach((ref) => ref?.close());
@@ -226,28 +256,28 @@ export default function CardBookScreen() {
   };
 
   const handleMoveGroup = (index: number, direction: 'up' | 'down') => {
-    const sortedUserGroups = [...userGroups].sort((a, b) => a.sortOrder - b.sortOrder);
+    const sortedCustomGroups = [...customGroups].sort((a, b) => a.sortOrder - b.sortOrder);
     const newIndex = direction === 'up' ? index - 1 : index + 1;
 
-    if (newIndex < 0 || newIndex >= sortedUserGroups.length) return;
+    if (newIndex < 0 || newIndex >= sortedCustomGroups.length) return;
 
     // 스왑
-    [sortedUserGroups[index], sortedUserGroups[newIndex]] = [sortedUserGroups[newIndex], sortedUserGroups[index]];
+    [sortedCustomGroups[index], sortedCustomGroups[newIndex]] = [sortedCustomGroups[newIndex], sortedCustomGroups[index]];
 
     // sortOrder 재할당
-    const reorderedGroups = sortedUserGroups.map((group, idx) => ({
+    const reorderedGroups = sortedCustomGroups.map((group, idx) => ({
       ...group,
       sortOrder: idx,
     }));
 
-    setUserGroups(reorderedGroups);
+    setCustomGroups(reorderedGroups);
   };
 
   const handleSaveReorder = async () => {
     try {
-      const sortedUserGroups = [...userGroups].sort((a, b) => a.sortOrder - b.sortOrder);
+      const sortedCustomGroups = [...customGroups].sort((a, b) => a.sortOrder - b.sortOrder);
       await groupApi.reorder({
-        groups: sortedUserGroups.map((g, idx) => ({
+        groups: sortedCustomGroups.map((g, idx) => ({
           id: g.id,
           sortOrder: idx,
         })),
@@ -261,7 +291,7 @@ export default function CardBookScreen() {
   };
 
   const renderRightActions = (group: GroupItem) => {
-    if (isSystemGroup(group.id)) return null;
+    if (group.isDefault) return null;
 
     return (
       <View style={styles.swipeActionsContainer}>
@@ -307,7 +337,7 @@ export default function CardBookScreen() {
       </TouchableOpacity>
     );
 
-    if (isSystemGroup(item.id)) {
+    if (item.isDefault) {
       return groupContent;
     }
 
@@ -329,38 +359,42 @@ export default function CardBookScreen() {
     );
   };
 
-  const renderCardItem = ({ item }: { item: typeof mockCards[0] }) => (
-    <TouchableOpacity
-      style={styles.cardItem}
-      onPress={() => router.push(`/cardbook/${item.id}`)}
-    >
-      <View style={styles.cardAvatar}>
-        {item.profileImage ? (
-          <Text>IMG</Text>
-        ) : (
+  const renderCardItem = ({ item }: { item: CardBookResponse }) => {
+    const profile = parseProfileSnapshot(item.profileSnapshot);
+    const name = profile?.name || '이름 없음';
+    const title = profile?.title || '';
+    const company = profile?.company || '';
+
+    return (
+      <TouchableOpacity
+        style={styles.cardItem}
+        onPress={() => router.push(`/cardbook/${item.id}`)}
+      >
+        <View style={styles.cardAvatar}>
           <Text style={styles.cardAvatarText}>
-            {item.name.charAt(0)}
+            {name.charAt(0)}
           </Text>
-        )}
-      </View>
-      <View style={styles.cardInfo}>
-        <Text style={styles.cardName}>{item.name}</Text>
-        <Text style={styles.cardTitle}>
-          {item.title} @ {item.company}
-        </Text>
-        {item.tags.length > 0 && (
-          <View style={styles.tagContainer}>
-            {item.tags.map((tag, index) => (
-              <View key={index} style={styles.tag}>
-                <Text style={styles.tagText}>#{tag}</Text>
-              </View>
-            ))}
+        </View>
+        <View style={styles.cardInfo}>
+          <View style={styles.cardNameRow}>
+            <Text style={styles.cardName}>{name}</Text>
+            {item.isFavorite && (
+              <Ionicons name="star" size={16} color={Colors.warning || '#F59E0B'} />
+            )}
           </View>
-        )}
-      </View>
-      <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
-    </TouchableOpacity>
-  );
+          {(title || company) && (
+            <Text style={styles.cardTitle}>
+              {title}{title && company ? ' @ ' : ''}{company}
+            </Text>
+          )}
+          {item.memo && (
+            <Text style={styles.cardMemo} numberOfLines={1}>{item.memo}</Text>
+          )}
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -410,13 +444,24 @@ export default function CardBookScreen() {
 
       <View style={styles.divider} />
 
-      <FlatList
-        data={mockCards}
-        renderItem={renderCardItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.cardList}
-        showsVerticalScrollIndicator={false}
-      />
+      {cardBooksLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : cardBooks.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="folder-open-outline" size={48} color={Colors.textTertiary} />
+          <Text style={styles.emptyText}>명함이 없습니다</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={cardBooks}
+          renderItem={renderCardItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.cardList}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
       <Modal
         visible={showCreateGroupModal}
@@ -559,8 +604,8 @@ export default function CardBookScreen() {
             <Text style={styles.reorderHint}>화살표 버튼으로 순서를 변경하세요</Text>
 
             <ScrollView style={styles.reorderListContainer}>
-              {userGroups.length > 0 ? (
-                [...userGroups].sort((a, b) => a.sortOrder - b.sortOrder).map((group, index) => (
+              {customGroups.length > 0 ? (
+                [...customGroups].sort((a, b) => a.sortOrder - b.sortOrder).map((group, index) => (
                   <View key={group.id} style={styles.reorderItem}>
                     <View style={styles.reorderItemContent}>
                       <Ionicons name="folder-outline" size={20} color={Colors.textSecondary} />
@@ -576,11 +621,11 @@ export default function CardBookScreen() {
                         <Ionicons name="chevron-up" size={20} color={index === 0 ? Colors.textTertiary : Colors.primary} />
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.reorderButton, index === userGroups.length - 1 && styles.reorderButtonDisabled]}
+                        style={[styles.reorderButton, index === customGroups.length - 1 && styles.reorderButtonDisabled]}
                         onPress={() => handleMoveGroup(index, 'down')}
-                        disabled={index === userGroups.length - 1}
+                        disabled={index === customGroups.length - 1}
                       >
-                        <Ionicons name="chevron-down" size={20} color={index === userGroups.length - 1 ? Colors.textTertiary : Colors.primary} />
+                        <Ionicons name="chevron-down" size={20} color={index === customGroups.length - 1 ? Colors.textTertiary : Colors.primary} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -691,6 +736,22 @@ const styles = StyleSheet.create({
   },
   cardList: {
     paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: Colors.textTertiary,
   },
   cardItem: {
     flexDirection: 'row',
@@ -717,6 +778,11 @@ const styles = StyleSheet.create({
   cardInfo: {
     flex: 1,
   },
+  cardNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   cardName: {
     fontSize: 16,
     fontWeight: '600',
@@ -726,6 +792,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     marginTop: 2,
+  },
+  cardMemo: {
+    fontSize: 12,
+    color: Colors.textTertiary,
+    marginTop: 4,
   },
   tagContainer: {
     flexDirection: 'row',

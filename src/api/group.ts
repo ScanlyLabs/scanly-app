@@ -7,6 +7,25 @@ export interface GroupResponse {
   createdAt: string;
 }
 
+export interface DefaultGroupResponse {
+  id: string;
+  name: string;
+  cardBookCount: number;
+}
+
+export interface GroupWithCountResponse {
+  id: string;
+  name: string;
+  sortOrder: number;
+  cardBookCount: number;
+  createdAt: string;
+}
+
+export interface GroupListResponse {
+  defaultGroups: DefaultGroupResponse[];
+  customGroups: GroupWithCountResponse[];
+}
+
 interface CreateGroupRequest {
   name: string;
 }
@@ -23,7 +42,7 @@ interface ReorderGroupRequest {
 }
 
 export const groupApi = {
-  getAll: () => api.get<GroupResponse[]>('/api/groups/v1'),
+  getAll: () => api.get<GroupListResponse>('/api/groups/v1'),
 
   create: (data: CreateGroupRequest) =>
     api.post<GroupResponse>('/api/groups/v1', data),
