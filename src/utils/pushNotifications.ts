@@ -127,7 +127,13 @@ export async function registerPushToken(): Promise<boolean> {
     lastRegisteredToken = token;
     console.log('푸시 토큰 등록 성공:', token);
     return true;
-  } catch (error) {
+  } catch (error: any) {
+    // 중복 키 에러는 이미 등록된 것이므로 성공으로 처리
+    if (error?.code === 'DUPLICATE_KEY' || error?.message?.includes('duplicate')) {
+      lastRegisteredToken = token;
+      console.log('푸시 토큰이 이미 서버에 등록되어 있습니다.');
+      return true;
+    }
     console.error('푸시 토큰 등록 실패:', error);
     return false;
   }
@@ -143,8 +149,16 @@ export function setupPushTokenListener(): () => void {
     return () => {};
   }
 
-  const subscription = Notifications.addPushTokenListener(async (token) => {
-    console.log('푸시 토큰이 변경되었습니다:', token.data);
+  const subscription = Notifications.addPushTokenListener(async (tokenData) => {
+    const newToken = tokenData.data;
+
+    // 실제로 토큰이 변경된 경우에만 재등록
+    if (lastRegisteredToken && lastRegisteredToken === newToken) {
+      console.log('토큰이 동일하여 재등록 스킵');
+      return;
+    }
+
+    console.log('푸시 토큰이 변경되었습니다. 재등록 시도...');
     lastRegisteredToken = null; // 캐시 무효화
     await registerPushToken();
   });

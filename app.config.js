@@ -17,6 +17,7 @@ module.exports = {
     },
     ios: {
       supportsTablet: true,
+      bundleIdentifier: 'com.scanlylabs.scanly',
     },
     android: {
       adaptiveIcon: {
