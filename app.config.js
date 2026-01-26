@@ -32,6 +32,9 @@ module.exports = {
     plugins: ['expo-router', 'expo-barcode-scanner'],
     extra: {
       apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:8080',
+      eas: {
+        projectId: 'bed600ee-d655-4d66-8f8b-a28ed4641964',
+      },
     },
   },
 };
