@@ -13,6 +13,7 @@ import { Colors } from '../../src/constants/colors';
 import { authApi } from '../../src/api/auth';
 import { tokenStorage } from '../../src/utils/tokenStorage';
 import { storage } from '../../src/utils/storage';
+import { clearPushTokenCache } from '../../src/utils/pushNotifications';
 
 const menuItems = [
   {
@@ -62,6 +63,7 @@ export default function SettingsScreen() {
             }
             await tokenStorage.clearTokens();
             await storage.clear();
+            clearPushTokenCache();
             router.replace('/(auth)/login');
           },
         },

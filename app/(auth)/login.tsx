@@ -16,6 +16,7 @@ import { Colors } from '../../src/constants/colors';
 import { authApi } from '../../src/api/auth';
 import { ApiError } from '../../src/api/client';
 import { tokenStorage } from '../../src/utils/tokenStorage';
+import { registerPushToken } from '../../src/utils/pushNotifications';
 
 export default function LoginScreen() {
   const [loginId, setLoginId] = useState('');
@@ -82,6 +83,10 @@ export default function LoginScreen() {
     try {
       const response = await authApi.login({ loginId, password });
       await tokenStorage.setTokens(response.accessToken, response.refreshToken);
+
+      // 푸시 토큰 등록 (백그라운드에서 실행, 실패해도 로그인 진행)
+      registerPushToken().catch(console.error);
+
       router.replace('/(tabs)');
     } catch (error) {
       if (error instanceof ApiError) {
