@@ -1,27 +1,36 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { pushTokenApi } from '../api/pushToken';
 import { tokenStorage } from './tokenStorage';
 
-// 알림 핸들러 설정
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// 알림 핸들러 설정 (실제 디바이스에서만)
+if (Device.isDevice) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 // 마지막으로 등록한 토큰 (중복 등록 방지)
 let lastRegisteredToken: string | null = null;
+
+/**
+ * 실제 디바이스인지 확인
+ */
+export function isRealDevice(): boolean {
+  return Device.isDevice;
+}
 
 /**
  * 푸시 알림 권한 요청
  */
 export async function requestNotificationPermissions(): Promise<boolean> {
   if (!Device.isDevice) {
-    console.log('푸시 알림은 실제 디바이스에서만 작동합니다.');
     return false;
   }
 
@@ -59,9 +68,20 @@ export async function getExpoPushToken(): Promise<string | null> {
     return null;
   }
 
+  // projectId 가져오기 (EAS 빌드 또는 환경변수에서)
+  const projectId =
+    Constants.expoConfig?.extra?.eas?.projectId ??
+    Constants.easConfig?.projectId ??
+    process.env.EXPO_PUBLIC_PROJECT_ID;
+
+  if (!projectId) {
+    console.log('projectId가 설정되지 않았습니다. EAS 빌드에서만 푸시 토큰을 가져올 수 있습니다.');
+    return null;
+  }
+
   try {
     const { data: token } = await Notifications.getExpoPushTokenAsync({
-      projectId: process.env.EXPO_PUBLIC_PROJECT_ID,
+      projectId,
     });
     return token;
   } catch (error) {
@@ -115,11 +135,16 @@ export async function registerPushToken(): Promise<boolean> {
 
 /**
  * 푸시 토큰 변경 리스너 설정
- * 앱 시작 시 한 번 호출
+ * 앱 시작 시 한 번 호출 (실제 디바이스에서만 동작)
  */
 export function setupPushTokenListener(): () => void {
-  const subscription = Notifications.addPushTokenListener(async () => {
-    console.log('푸시 토큰이 변경되었습니다. 재등록 시도...');
+  // 시뮬레이터에서는 리스너 설정하지 않음
+  if (!Device.isDevice) {
+    return () => {};
+  }
+
+  const subscription = Notifications.addPushTokenListener(async (token) => {
+    console.log('푸시 토큰이 변경되었습니다:', token.data);
     lastRegisteredToken = null; // 캐시 무효화
     await registerPushToken();
   });
