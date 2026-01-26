@@ -14,12 +14,14 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import { cardApi, ReadMeCardResponse } from '../../src/api/card';
+import { cardBookApi } from '../../src/api/cardbook';
 
 export default function CardDetailScreen() {
   const { loginId } = useLocalSearchParams<{ loginId: string }>();
   const [showExchangeModal, setShowExchangeModal] = useState(false);
   const [card, setCard] = useState<ReadMeCardResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,19 +42,34 @@ export default function CardDetailScreen() {
     fetchCard();
   }, [loginId]);
 
-  const handleSave = () => {
-    // TODO: 명함 저장 API 호출
-    setShowExchangeModal(true);
+  const handleSave = async () => {
+    if (!card) return;
+
+    try {
+      setSaving(true);
+      await cardBookApi.save({ cardId: card.id });
+      setShowExchangeModal(true);
+    } catch (err) {
+      Alert.alert('오류', '명함 저장에 실패했습니다.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleExchange = (sendMyCard: boolean) => {
+  const handleExchange = async (sendMyCard: boolean) => {
     setShowExchangeModal(false);
-    if (sendMyCard) {
-      // TODO: 상호 교환 API 호출
-      Alert.alert('완료', '명함이 저장되었고, 내 명함도 전송되었습니다.');
+
+    if (sendMyCard && card) {
+      try {
+        await cardBookApi.exchange({ cardId: card.id });
+        Alert.alert('완료', '명함이 저장되었고, 내 명함도 전송되었습니다.');
+      } catch (err) {
+        Alert.alert('완료', '명함이 저장되었습니다.\n(내 명함 전송에 실패했습니다)');
+      }
     } else {
       Alert.alert('완료', '명함이 저장되었습니다.');
     }
+
     router.back();
   };
 
