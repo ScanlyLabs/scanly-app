@@ -127,13 +127,7 @@ export async function registerPushToken(): Promise<boolean> {
     lastRegisteredToken = token;
     console.log('푸시 토큰 등록 성공:', token);
     return true;
-  } catch (error: any) {
-    // 중복 키 에러는 이미 등록된 것이므로 성공으로 처리
-    if (error?.code === 'DUPLICATE_KEY' || error?.message?.includes('duplicate')) {
-      lastRegisteredToken = token;
-      console.log('푸시 토큰이 이미 서버에 등록되어 있습니다.');
-      return true;
-    }
+  } catch (error) {
     console.error('푸시 토큰 등록 실패:', error);
     return false;
   }
