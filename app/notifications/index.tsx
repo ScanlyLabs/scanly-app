@@ -1,70 +1,62 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   FlatList,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
-
-interface Notification {
-  id: string;
-  type: 'scan' | 'card' | 'system';
-  title: string;
-  message: string;
-  timestamp: Date;
-  isRead: boolean;
-}
-
-// TODO: 실제 알림 데이터로 교체
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    type: 'scan',
-    title: '새로운 명함 스캔',
-    message: '홍길동님의 명함이 명함첩에 추가되었습니다.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-    isRead: false,
-  },
-  {
-    id: '2',
-    type: 'card',
-    title: '명함 조회',
-    message: '누군가 당신의 명함을 조회했습니다.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60),
-    isRead: false,
-  },
-  {
-    id: '3',
-    type: 'system',
-    title: '환영합니다!',
-    message: 'Scanly에 가입해 주셔서 감사합니다.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
-    isRead: true,
-  },
-];
+import {
+  notificationApi,
+  NotificationResponse,
+  parseNotificationData,
+} from '../../src/api/notification';
 
 export default function NotificationsScreen() {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const getIcon = (type: Notification['type']) => {
+  const fetchNotifications = async () => {
+    try {
+      const response = await notificationApi.getAll();
+      setNotifications(response);
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchNotifications();
+    }, [])
+  );
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchNotifications();
+  };
+
+  const getIcon = (type: NotificationResponse['type']) => {
     switch (type) {
-      case 'scan':
-        return 'scan-outline';
-      case 'card':
-        return 'card-outline';
-      case 'system':
-        return 'information-circle-outline';
+      case 'CARD_EXCHANGE':
+        return 'swap-horizontal-outline';
       default:
         return 'notifications-outline';
     }
   };
 
-  const formatTime = (date: Date) => {
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / (1000 * 60));
@@ -78,20 +70,44 @@ export default function NotificationsScreen() {
     return date.toLocaleDateString('ko-KR');
   };
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, isRead: true } : n))
-    );
+  const handleNotificationPress = async (notification: NotificationResponse) => {
+    try {
+      await notificationApi.read(notification.id);
+      setNotifications(prev =>
+        prev.map(n => (n.id === notification.id ? { ...n, isRead: true } : n))
+      );
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err);
+    }
+
+    if (notification.type === 'CARD_EXCHANGE') {
+      const data = parseNotificationData(notification.type, notification.data);
+      if (data?.senderLoginId) {
+        router.push({
+          pathname: '/card/[loginId]',
+          params: { loginId: data.senderLoginId, fromNotification: 'true' },
+        });
+      }
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+  const markAllAsRead = async () => {
+    const unreadNotifications = notifications.filter(n => !n.isRead);
+
+    try {
+      await Promise.all(
+        unreadNotifications.map(n => notificationApi.read(n.id))
+      );
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (err) {
+      console.error('Failed to mark all as read:', err);
+    }
   };
 
-  const renderNotification = ({ item }: { item: Notification }) => (
+  const renderNotification = ({ item }: { item: NotificationResponse }) => (
     <TouchableOpacity
       style={[styles.notificationItem, !item.isRead && styles.unreadItem]}
-      onPress={() => markAsRead(item.id)}
+      onPress={() => handleNotificationPress(item)}
     >
       <View style={[styles.iconContainer, !item.isRead && styles.unreadIcon]}>
         <Ionicons
@@ -105,10 +121,10 @@ export default function NotificationsScreen() {
           <Text style={[styles.notificationTitle, !item.isRead && styles.unreadText]}>
             {item.title}
           </Text>
-          <Text style={styles.timestamp}>{formatTime(item.timestamp)}</Text>
+          <Text style={styles.timestamp}>{formatTime(item.createdAt)}</Text>
         </View>
         <Text style={styles.notificationMessage} numberOfLines={2}>
-          {item.message}
+          {item.body}
         </Text>
       </View>
       {!item.isRead && <View style={styles.unreadDot} />}
@@ -116,6 +132,23 @@ export default function NotificationsScreen() {
   );
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color={Colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.title}>알림</Text>
+          <View style={{ width: 60 }} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -150,6 +183,9 @@ export default function NotificationsScreen() {
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
         />
       )}
     </SafeAreaView>
@@ -178,6 +214,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.primary,
     fontWeight: '500',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   listContent: {
     paddingVertical: 8,
