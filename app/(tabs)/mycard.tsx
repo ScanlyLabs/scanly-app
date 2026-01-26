@@ -112,9 +112,14 @@ export default function MyCardScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>내 명함</Text>
-          <TouchableOpacity onPress={() => router.push('/settings')}>
-            <Ionicons name="settings-outline" size={24} color={Colors.text} />
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity onPress={() => router.push('/notifications')} style={styles.headerButton}>
+              <Ionicons name="notifications-outline" size={24} color={Colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/settings')} style={styles.headerButton}>
+              <Ionicons name="settings-outline" size={24} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>로딩 중...</Text>
@@ -129,9 +134,14 @@ export default function MyCardScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>내 명함</Text>
-          <TouchableOpacity onPress={() => router.push('/settings')}>
-            <Ionicons name="settings-outline" size={24} color={Colors.text} />
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity onPress={() => router.push('/notifications')} style={styles.headerButton}>
+              <Ionicons name="notifications-outline" size={24} color={Colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/settings')} style={styles.headerButton}>
+              <Ionicons name="settings-outline" size={24} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.emptyContainer}>
@@ -159,9 +169,14 @@ export default function MyCardScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>내 명함</Text>
-        <TouchableOpacity onPress={() => router.push('/settings')}>
-          <Ionicons name="settings-outline" size={24} color={Colors.text} />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity onPress={() => router.push('/notifications')} style={styles.headerButton}>
+            <Ionicons name="notifications-outline" size={24} color={Colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/settings')} style={styles.headerButton}>
+            <Ionicons name="settings-outline" size={24} color={Colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -287,6 +302,14 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: Colors.text,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerButton: {
+    padding: 4,
   },
   loadingContainer: {
     flex: 1,
