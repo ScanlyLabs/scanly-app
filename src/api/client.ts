@@ -114,7 +114,22 @@ async function request<T>(
   };
 
   const response = await fetch(url, config);
-  const json: ApiResponse<T> = await response.json();
+
+  // 응답 본문이 비어있는 경우 처리
+  const text = await response.text();
+  if (!text) {
+    if (response.ok) {
+      return null as T;
+    }
+    throw new ApiError('EMPTY_RESPONSE', '서버 응답이 비어있습니다.');
+  }
+
+  let json: ApiResponse<T>;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new ApiError('PARSE_ERROR', '서버 응답을 파싱할 수 없습니다.');
+  }
 
   // 401 에러이고 재시도가 아닌 경우 토큰 재발급 시도
   if (response.status === 401 && !isRetry && !isPublicEndpoint(endpoint)) {
