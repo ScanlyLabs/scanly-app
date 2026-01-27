@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Colors } from '../../src/constants/colors';
 import { groupApi, GroupListResponse, GroupWithCountResponse, DefaultGroupResponse } from '../../src/api/group';
-import { cardBookApi, CardBookResponse } from '../../src/api/cardbook';
+import { cardBookApi, CardBookResponse, ProfileSnapshot } from '../../src/api/cardbook';
 
 // 기본 그룹 아이콘 매핑
 const DEFAULT_GROUP_ICONS: Record<string, string> = {
@@ -36,13 +36,6 @@ interface GroupItem {
   icon: string;
   sortOrder: number;
   isDefault: boolean;
-}
-
-interface ProfileSnapshot {
-  name: string;
-  title: string;
-  company: string;
-  profileImageUrl: string | null;
 }
 
 // 기본 그룹을 GroupItem으로 변환
@@ -64,16 +57,6 @@ const toCustomGroupItem = (response: GroupWithCountResponse): GroupItem => ({
   sortOrder: response.sortOrder,
   isDefault: false,
 });
-
-// profileSnapshot JSON 파싱
-const parseProfileSnapshot = (snapshot: string | null): ProfileSnapshot | null => {
-  if (!snapshot) return null;
-  try {
-    return JSON.parse(snapshot);
-  } catch {
-    return null;
-  }
-};
 
 export default function CardBookScreen() {
   const [selectedGroup, setSelectedGroup] = useState('all');
@@ -360,7 +343,7 @@ export default function CardBookScreen() {
   };
 
   const renderCardItem = ({ item }: { item: CardBookResponse }) => {
-    const profile = parseProfileSnapshot(item.profileSnapshot);
+    const profile = item.profileSnapshot;
     const name = profile?.name || '이름 없음';
     const title = profile?.title || '';
     const company = profile?.company || '';

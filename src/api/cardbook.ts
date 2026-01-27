@@ -1,9 +1,21 @@
 import { api } from './client';
 
+export interface ProfileSnapshot {
+  name: string;
+  title: string;
+  company: string;
+  phone: string;
+  email: string;
+  bio: string | null;
+  profileImageUrl: string | null;
+  portfolioUrl: string | null;
+  location: string | null;
+}
+
 export interface CardBookResponse {
   id: string;
   cardId: string;
-  profileSnapshot: string | null;
+  profileSnapshot: ProfileSnapshot | null;
   groupId: string | null;
   memo: string | null;
   isFavorite: boolean;
