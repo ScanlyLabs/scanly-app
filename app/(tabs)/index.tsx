@@ -13,6 +13,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import { cardApi } from '../../src/api/card';
+import { notificationApi } from '../../src/api/notification';
 
 const { width } = Dimensions.get('window');
 const QR_SIZE = width * 0.6;
@@ -27,6 +28,7 @@ interface CardInfo {
 export default function HomeScreen() {
   const [card, setCard] = useState<CardInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchMyCard = useCallback(async () => {
     try {
@@ -50,10 +52,20 @@ export default function HomeScreen() {
     }
   }, []);
 
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const count = await notificationApi.getUnreadCount();
+      setUnreadCount(count || 0);
+    } catch (error) {
+      console.error('Failed to fetch unread count:', error);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       fetchMyCard();
-    }, [fetchMyCard])
+      fetchUnreadCount();
+    }, [fetchMyCard, fetchUnreadCount])
   );
 
   const handleShare = async () => {
@@ -81,6 +93,11 @@ export default function HomeScreen() {
           <View style={styles.headerButtons}>
             <TouchableOpacity onPress={() => router.push('/notifications')} style={styles.headerButton}>
               <Ionicons name="notifications-outline" size={24} color={Colors.text} />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push('/settings')} style={styles.headerButton}>
               <Ionicons name="settings-outline" size={24} color={Colors.text} />
@@ -103,6 +120,11 @@ export default function HomeScreen() {
           <View style={styles.headerButtons}>
             <TouchableOpacity onPress={() => router.push('/notifications')} style={styles.headerButton}>
               <Ionicons name="notifications-outline" size={24} color={Colors.text} />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push('/settings')} style={styles.headerButton}>
               <Ionicons name="settings-outline" size={24} color={Colors.text} />
@@ -146,6 +168,11 @@ export default function HomeScreen() {
         <View style={styles.headerButtons}>
           <TouchableOpacity onPress={() => router.push('/notifications')} style={styles.headerButton}>
             <Ionicons name="notifications-outline" size={24} color={Colors.text} />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/settings')} style={styles.headerButton}>
             <Ionicons name="settings-outline" size={24} color={Colors.text} />
@@ -225,6 +252,24 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     padding: 4,
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: Colors.error,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: Colors.white,
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   loadingContainer: {
     flex: 1,

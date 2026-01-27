@@ -193,7 +193,7 @@ export default function CardDetailScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.headerBackButton} onPress={() => router.replace('/(tabs)/scan')}>
+          <TouchableOpacity style={styles.headerBackButton} onPress={() => isFromNotification ? router.back() : router.replace('/(tabs)/scan')}>
             <Ionicons name="chevron-back" size={24} color={Colors.text} />
           </TouchableOpacity>
         </View>
@@ -208,7 +208,7 @@ export default function CardDetailScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.headerBackButton} onPress={() => router.replace('/(tabs)/scan')}>
+          <TouchableOpacity style={styles.headerBackButton} onPress={() => isFromNotification ? router.back() : router.replace('/(tabs)/scan')}>
             <Ionicons name="chevron-back" size={24} color={Colors.text} />
           </TouchableOpacity>
         </View>
@@ -226,7 +226,7 @@ export default function CardDetailScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerBackButton} onPress={() => router.replace('/(tabs)/scan')}>
+        <TouchableOpacity style={styles.headerBackButton} onPress={() => isFromNotification ? router.back() : router.replace('/(tabs)/scan')}>
           <Ionicons name="chevron-back" size={24} color={Colors.text} />
         </TouchableOpacity>
       </View>
