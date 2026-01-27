@@ -17,7 +17,8 @@ import { cardApi, ReadMeCardResponse } from '../../src/api/card';
 import { cardBookApi } from '../../src/api/cardbook';
 
 export default function CardDetailScreen() {
-  const { loginId } = useLocalSearchParams<{ loginId: string }>();
+  const { loginId, fromNotification } = useLocalSearchParams<{ loginId: string; fromNotification?: string }>();
+  const isFromNotification = fromNotification === 'true';
   const [showExchangeModal, setShowExchangeModal] = useState(false);
   const [card, setCard] = useState<ReadMeCardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,7 +49,13 @@ export default function CardDetailScreen() {
     try {
       setSaving(true);
       await cardBookApi.save({ cardId: card.id });
-      setShowExchangeModal(true);
+
+      if (isFromNotification) {
+        Alert.alert('완료', '명함이 저장되었습니다.');
+        router.back();
+      } else {
+        setShowExchangeModal(true);
+      }
     } catch (err) {
       Alert.alert('오류', '명함 저장에 실패했습니다.');
     } finally {
