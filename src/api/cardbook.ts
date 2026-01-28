@@ -67,6 +67,11 @@ interface GetCardBooksParams {
   size?: number;
 }
 
+interface CheckSavedResponse {
+  saved: boolean;
+  cardBookId: string | null;
+}
+
 export const cardBookApi = {
   getAll: (params?: GetCardBooksParams) => {
     const searchParams = new URLSearchParams();
@@ -98,4 +103,7 @@ export const cardBookApi = {
 
   delete: (id: string) =>
     api.post<void>(`/api/cardbooks/v1/${id}/delete`),
+
+  checkSaved: (cardId: string) =>
+    api.get<CheckSavedResponse>(`/api/cardbooks/v1/check-saved?cardId=${cardId}`),
 };

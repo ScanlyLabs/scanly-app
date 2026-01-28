@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,10 +11,13 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { cardBookApi, CardBookResponse } from '../../src/api/cardbook';
+import { groupApi, GroupWithCountResponse } from '../../src/api/group';
 
 // 태그 색상 옵션
 const TAG_COLORS = [
@@ -28,43 +31,24 @@ const TAG_COLORS = [
   '#6B7280', // gray
 ];
 
-// 더미 그룹 데이터
-const mockGroups = [
-  { id: '1', name: '거래처' },
-  { id: '2', name: '스타트업' },
-  { id: '3', name: '2024 컨퍼런스' },
-];
-
-// 더미 데이터
-const mockSavedCard = {
-  id: '1',
-  card: {
-    name: '김철수',
-    title: 'CEO',
-    company: 'XYZ Inc',
-    phone: '010-9876-5432',
-    email: 'kim@xyz.com',
-    bio: '스타트업 창업자',
-  },
-  isFavorite: true,
-  memo: '다음 주 미팅 제안',
-  tags: [
-    { id: '1', name: '파트너', color: '#4F46E5' },
-    { id: '2', name: 'VIP', color: '#EF4444' },
-  ],
-  group: { id: '1', name: '거래처' },
-  savedAt: '2024.01.15',
-};
-
 type Tag = { id: string; name: string; color: string };
+type GroupItem = { id: string; name: string };
 
 export default function SavedCardDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [isFavorite, setIsFavorite] = useState(mockSavedCard.isFavorite);
-  const [memo, setMemo] = useState(mockSavedCard.memo);
+
+  // 데이터 및 로딩 상태
+  const [cardBook, setCardBook] = useState<CardBookResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [groups, setGroups] = useState<GroupItem[]>([]);
+
+  // UI 상태
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [memo, setMemo] = useState('');
   const [isEditingMemo, setIsEditingMemo] = useState(false);
-  const [tags, setTags] = useState<Tag[]>(mockSavedCard.tags);
-  const [currentGroup, setCurrentGroup] = useState(mockSavedCard.group);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [currentGroup, setCurrentGroup] = useState<GroupItem | null>(null);
 
   // 태그 모달 상태
   const [showTagModal, setShowTagModal] = useState(false);
@@ -76,14 +60,70 @@ export default function SavedCardDetailScreen() {
   // 그룹 이동 모달 상태
   const [showGroupModal, setShowGroupModal] = useState(false);
 
-  const toggleFavorite = () => {
-    setIsFavorite(!isFavorite);
-    // TODO: API 호출
+  // 데이터 로드
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!id) return;
+
+      try {
+        setLoading(true);
+        const [cardBookData, groupsData] = await Promise.all([
+          cardBookApi.getById(id),
+          groupApi.getAll(),
+        ]);
+
+        setCardBook(cardBookData);
+        setIsFavorite(cardBookData.isFavorite);
+        setMemo(cardBookData.memo || '');
+
+        // 그룹 목록 설정
+        const allGroups: GroupItem[] = groupsData.customGroups.map(g => ({
+          id: g.id,
+          name: g.name,
+        }));
+        setGroups(allGroups);
+
+        // 현재 그룹 찾기
+        if (cardBookData.groupId) {
+          const group = allGroups.find(g => g.id === cardBookData.groupId);
+          if (group) {
+            setCurrentGroup(group);
+          }
+        }
+      } catch (err) {
+        setError('명함 정보를 불러올 수 없습니다.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [id]);
+
+  const toggleFavorite = async () => {
+    if (!id) return;
+
+    const newValue = !isFavorite;
+    setIsFavorite(newValue);
+
+    try {
+      await cardBookApi.updateFavorite(id, { favorite: newValue });
+    } catch (err) {
+      setIsFavorite(!newValue);
+      Alert.alert('오류', '즐겨찾기 변경에 실패했습니다.');
+    }
   };
 
-  const saveMemo = () => {
+  const saveMemo = async () => {
+    if (!id) return;
+
     setIsEditingMemo(false);
-    // TODO: API 호출
+
+    try {
+      await cardBookApi.updateMemo(id, { memo });
+    } catch (err) {
+      Alert.alert('오류', '메모 저장에 실패했습니다.');
+    }
   };
 
   // 태그 모달 핸들러
@@ -153,24 +193,32 @@ export default function SavedCardDetailScreen() {
   };
 
   // 그룹 이동 핸들러
-  const handleMoveToGroup = (group: { id: string; name: string }) => {
+  const handleMoveToGroup = async (group: GroupItem) => {
+    if (!id) return;
+
+    const previousGroup = currentGroup;
     setCurrentGroup(group);
     setShowGroupModal(false);
-    // TODO: API 호출
+
+    try {
+      await cardBookApi.updateGroup(id, { groupId: group.id });
+    } catch (err) {
+      setCurrentGroup(previousGroup);
+      Alert.alert('오류', '그룹 변경에 실패했습니다.');
+    }
   };
 
   const handleCall = () => {
-    // TODO: 전화 앱 열기
-    console.log('Call:', mockSavedCard.card.phone);
+    if (!cardBook?.profileSnapshot?.phone) return;
+    console.log('Call:', cardBook.profileSnapshot.phone);
   };
 
   const handleEmail = () => {
-    // TODO: 이메일 앱 열기
-    console.log('Email:', mockSavedCard.card.email);
+    if (!cardBook?.profileSnapshot?.email) return;
+    console.log('Email:', cardBook.profileSnapshot.email);
   };
 
   const handleSaveToContacts = () => {
-    // TODO: 기기 연락처에 저장
     Alert.alert('완료', '연락처에 저장되었습니다.');
   };
 
@@ -183,14 +231,48 @@ export default function SavedCardDetailScreen() {
         {
           text: '삭제',
           style: 'destructive',
-          onPress: () => {
-            // TODO: 삭제 API 호출
-            router.back();
+          onPress: async () => {
+            if (!id) return;
+            try {
+              await cardBookApi.delete(id);
+              router.back();
+            } catch (err) {
+              Alert.alert('오류', '명함 삭제에 실패했습니다.');
+            }
           },
         },
       ]
     );
   };
+
+  // 로딩 상태
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  // 에러 상태
+  if (error || !cardBook || !cardBook.profileSnapshot) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={48} color={Colors.error} />
+        <Text style={styles.pageErrorText}>{error || '명함을 찾을 수 없습니다.'}</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>돌아가기</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const profile = cardBook.profileSnapshot;
+  const savedAt = new Date(cardBook.createdAt).toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).replace(/\. /g, '.').replace('.', '');
 
   return (
     <>
@@ -221,21 +303,21 @@ export default function SavedCardDetailScreen() {
         <View style={styles.profileSection}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
-              {mockSavedCard.card.name.charAt(0)}
+              {profile.name.charAt(0)}
             </Text>
           </View>
 
-          <Text style={styles.name}>{mockSavedCard.card.name}</Text>
-          <Text style={styles.title}>{mockSavedCard.card.title}</Text>
-          <Text style={styles.company}>{mockSavedCard.card.company}</Text>
+          <Text style={styles.name}>{profile.name}</Text>
+          <Text style={styles.title}>{profile.title}</Text>
+          <Text style={styles.company}>{profile.company}</Text>
         </View>
 
         <View style={styles.contactSection}>
-          {mockSavedCard.card.phone && (
+          {profile.phone && (
             <TouchableOpacity style={styles.contactRow} onPress={handleCall}>
               <View style={styles.contactInfo}>
                 <Ionicons name="call-outline" size={20} color={Colors.textSecondary} />
-                <Text style={styles.contactText}>{mockSavedCard.card.phone}</Text>
+                <Text style={styles.contactText}>{profile.phone}</Text>
               </View>
               <View style={styles.contactAction}>
                 <Ionicons name="call" size={20} color={Colors.primary} />
@@ -243,11 +325,11 @@ export default function SavedCardDetailScreen() {
             </TouchableOpacity>
           )}
 
-          {mockSavedCard.card.email && (
+          {profile.email && (
             <TouchableOpacity style={styles.contactRow} onPress={handleEmail}>
               <View style={styles.contactInfo}>
                 <Ionicons name="mail-outline" size={20} color={Colors.textSecondary} />
-                <Text style={styles.contactText}>{mockSavedCard.card.email}</Text>
+                <Text style={styles.contactText}>{profile.email}</Text>
               </View>
               <View style={styles.contactAction}>
                 <Ionicons name="mail" size={20} color={Colors.primary} />
@@ -283,7 +365,7 @@ export default function SavedCardDetailScreen() {
           <Text style={styles.sectionTitle}>그룹</Text>
           <TouchableOpacity style={styles.groupSelector} onPress={() => setShowGroupModal(true)}>
             <Ionicons name="folder-outline" size={20} color={Colors.textSecondary} />
-            <Text style={styles.groupName}>{currentGroup.name}</Text>
+            <Text style={styles.groupName}>{currentGroup?.name || '전체'}</Text>
             <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
           </TouchableOpacity>
         </View>
@@ -328,7 +410,7 @@ export default function SavedCardDetailScreen() {
         </TouchableOpacity>
 
         <Text style={styles.savedAt}>
-          저장일: {mockSavedCard.savedAt}
+          저장일: {savedAt}
         </Text>
       </ScrollView>
 
@@ -428,29 +510,29 @@ export default function SavedCardDetailScreen() {
             </View>
 
             <View style={styles.groupList}>
-              {mockGroups.map((group) => (
+              {groups.map((group) => (
                 <TouchableOpacity
                   key={group.id}
                   style={[
                     styles.groupOption,
-                    currentGroup.id === group.id && styles.groupOptionSelected,
+                    currentGroup?.id === group.id && styles.groupOptionSelected,
                   ]}
                   onPress={() => handleMoveToGroup(group)}
                 >
                   <Ionicons
                     name="folder-outline"
                     size={20}
-                    color={currentGroup.id === group.id ? Colors.primary : Colors.textSecondary}
+                    color={currentGroup?.id === group.id ? Colors.primary : Colors.textSecondary}
                   />
                   <Text
                     style={[
                       styles.groupOptionText,
-                      currentGroup.id === group.id && styles.groupOptionTextSelected,
+                      currentGroup?.id === group.id && styles.groupOptionTextSelected,
                     ]}
                   >
                     {group.name}
                   </Text>
-                  {currentGroup.id === group.id && (
+                  {currentGroup?.id === group.id && (
                     <Ionicons name="checkmark" size={20} color={Colors.primary} />
                   )}
                 </TouchableOpacity>
@@ -467,6 +549,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+    paddingHorizontal: 40,
+  },
+  pageErrorText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  backButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 24,
+  },
+  backButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '600',
   },
   content: {
     paddingHorizontal: 20,
