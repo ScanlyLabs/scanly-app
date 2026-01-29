@@ -42,6 +42,8 @@ export default function CardDetailScreen() {
   const [newGroupName, setNewGroupName] = useState('');
   const [groupNameError, setGroupNameError] = useState('');
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [alreadySaved, setAlreadySaved] = useState(false);
+  const [savedCardBookId, setSavedCardBookId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCard = async () => {
@@ -51,6 +53,15 @@ export default function CardDetailScreen() {
         setLoading(true);
         const response = await cardApi.getByLoginId(loginId);
         setCard(response);
+
+        // 이미 저장된 명함인지 확인
+        try {
+          const savedStatus = await cardBookApi.checkSaved(response.id);
+          setAlreadySaved(savedStatus.saved);
+          setSavedCardBookId(savedStatus.cardBookId);
+        } catch {
+          // checkSaved 실패 시 저장되지 않은 것으로 간주
+        }
       } catch (err) {
         setError('명함을 불러올 수 없습니다.');
       } finally {
@@ -281,9 +292,25 @@ export default function CardDetailScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.saveButton} onPress={handleSavePress} disabled={saving}>
-          <Text style={styles.saveButtonText}>{saving ? '저장 중...' : '저장'}</Text>
-        </TouchableOpacity>
+        {alreadySaved ? (
+          <TouchableOpacity
+            style={styles.savedButton}
+            onPress={() => {
+              if (savedCardBookId) {
+                router.push(`/cardbook/${savedCardBookId}`);
+              } else {
+                router.replace('/(tabs)/cardbook');
+              }
+            }}
+          >
+            <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
+            <Text style={styles.savedButtonText}>이미 저장된 명함입니다</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.saveButton} onPress={handleSavePress} disabled={saving}>
+            <Text style={styles.saveButtonText}>{saving ? '저장 중...' : '저장'}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <Modal
@@ -605,6 +632,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: Colors.white,
+  },
+  savedButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.success + '15',
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.success,
+  },
+  savedButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.success,
   },
   modalOverlay: {
     flex: 1,
